@@ -172,18 +172,20 @@
     <script>
         // --- CONFIGURAÇÃO FIREBASE ---
         const firebaseConfig = {
-            apiKey: "AIzaSyBVJ_demo_placeholder",
+            apiKey: "AIzaSyBianYFsS5_8z6HDlBnucOi53qdz2qzj2A",
             authDomain: "karaokebar-7a67f.firebaseapp.com",
             databaseURL: "https://karaokebar-7a67f-default-rtdb.firebaseio.com",
             projectId: "karaokebar-7a67f",
-            storageBucket: "karaokebar-7a67f.appspot.com",
-            messagingSenderId: "1234567890",
-            appId: "1:1234567890:web:abcdef1234567890"
+            storageBucket: "karaokebar-7a67f.firebasestorage.app",
+            messagingSenderId: "747385059296",
+            appId: "1:747385059296:web:1faf5d09f15413441a9d85",
+            measurementId: "G-1WZ9VRTQ67"
         };
 
         let db = null;
         let firebaseConnected = false;
         let useFirebase = false;
+        let syncInProgress = false;
 
         // Inicializar Firebase
         function initFirebase() {
@@ -193,12 +195,12 @@
                 firebaseConnected = true;
                 useFirebase = true;
                 updateFirebaseStatus(true);
-                console.log('Firebase inicializado com sucesso');
+                console.log('✅ Firebase inicializado com sucesso');
                 
                 // Sincronizar dados do Firebase
                 sincronizarComFirebase();
             } catch (error) {
-                console.warn('Erro ao inicializar Firebase, usando localStorage:', error);
+                console.warn('⚠️ Erro ao inicializar Firebase, usando localStorage:', error);
                 useFirebase = false;
                 updateFirebaseStatus(false);
                 carregarDoLocalStorage();
@@ -233,6 +235,8 @@
 
             const ref = db.ref('karaoke');
             ref.on('value', (snapshot) => {
+                if (syncInProgress) return;
+                
                 const data = snapshot.val();
                 if (data) {
                     fila = data.fila || [];
@@ -240,8 +244,12 @@
                     contagemCantores = data.contagem || {};
                     filaManualFechada = data.manualFechada || false;
                     atualizarUI();
-                    console.log('Dados sincronizados do Firebase');
+                    console.log('✅ Dados sincronizados do Firebase');
                 }
+            }, (error) => {
+                console.error('❌ Erro ao sincronizar:', error);
+                updateFirebaseStatus(false);
+                carregarDoLocalStorage();
             });
         }
 
@@ -251,6 +259,7 @@
                 return;
             }
 
+            syncInProgress = true;
             try {
                 db.ref('karaoke').set({
                     fila: fila,
@@ -258,10 +267,18 @@
                     contagem: contagemCantores,
                     manualFechada: filaManualFechada,
                     ultimaAtualizacao: new Date().toISOString()
+                }, (error) => {
+                    syncInProgress = false;
+                    if (error) {
+                        console.error('❌ Erro ao salvar no Firebase:', error);
+                        salvarNoLocalStorage();
+                    } else {
+                        console.log('✅ Dados salvos no Firebase');
+                    }
                 });
-                console.log('Dados salvos no Firebase');
             } catch (error) {
-                console.error('Erro ao salvar no Firebase:', error);
+                syncInProgress = false;
+                console.error('❌ Erro:', error);
                 salvarNoLocalStorage();
             }
         }
