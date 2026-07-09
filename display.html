@@ -6,6 +6,9 @@
     <title>Painel de Exibição - Karaokê Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800;900&display=swap');
         * { font-family: 'Poppins', sans-serif; }
@@ -150,12 +153,6 @@
             margin-top: 10px;
         }
 
-        .estado-vacio {
-            font-size: 60px;
-            color: #ccc;
-            padding: 60px;
-        }
-
         .control-bar {
             position: fixed;
             bottom: 20px;
@@ -184,10 +181,6 @@
 
         .control-btn:hover {
             opacity: 0.8;
-        }
-
-        .control-btn-danger {
-            background: #ef4444;
         }
 
         .pulse {
@@ -292,20 +285,28 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
 
-        .debug-info {
+        .firebase-status {
             position: fixed;
-            bottom: 100px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px;
-            border-radius: 10px;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 50px;
             font-size: 12px;
-            color: #666;
-            max-width: 200px;
+            font-weight: bold;
+            z-index: 100;
+            background: #10b981;
+            color: white;
         }
     </style>
 </head>
 <body>
+
+    <!-- Status Firebase -->
+    <div class="firebase-status" id="firebase-status">
+        <i class="fas fa-circle mr-2" style="animation: pulse 1s infinite;"></i>
+        <span id="status-text">🔥 Conectado ao Firebase</span>
+    </div>
 
     <!-- Timer -->
     <div class="timer">
@@ -316,13 +317,6 @@
     <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Pantalla completa">
         <i class="fas fa-expand"></i>
     </button>
-
-    <!-- Debug Info -->
-    <div class="debug-info" id="debug-info" style="display: none;">
-        <p>Status: <span id="debug-status">Carregando...</span></p>
-        <p>Fila: <span id="debug-fila">0</span> pessoas</p>
-        <p>Atualizado em: <span id="debug-time">-</span></p>
-    </div>
 
     <!-- Contenedor Principal -->
     <div class="main-container">
@@ -378,54 +372,66 @@
         <button class="control-btn" onclick="window.location.href='index.html'">
             <i class="fas fa-arrow-left mr-2"></i>Voltar
         </button>
-        <button class="control-btn" onclick="document.getElementById('debug-info').style.display = document.getElementById('debug-info').style.display === 'none' ? 'block' : 'none'">
-            <i class="fas fa-bug mr-2"></i>Debug
+        <button class="control-btn" onclick="resetarDisplay()">
+            <i class="fas fa-redo mr-2"></i>Resetar
         </button>
     </div>
 
     <script>
-        const TEMPO_MEDIO_MUSICA = 5; // minutos
-        let channel = null;
+        // --- CONFIGURAÇÃO FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBianYFsS5_8z6HDlBnucOi53qdz2qzj2A",
+            authDomain: "karaokebar-7a67f.firebaseapp.com",
+            databaseURL: "https://karaokebar-7a67f-default-rtdb.firebaseio.com",
+            projectId: "karaokebar-7a67f",
+            storageBucket: "karaokebar-7a67f.firebasestorage.app",
+            messagingSenderId: "747385059296",
+            appId: "1:747385059296:web:1faf5d09f15413441a9d85",
+            measurementId: "G-1WZ9VRTQ67"
+        };
 
-        // Inicializar BroadcastChannel si está disponible
-        function initBroadcastChannel() {
+        let db = null;
+        let firebaseConnected = false;
+        const TEMPO_MEDIO_MUSICA = 5; // minutos
+
+        // Inicializar Firebase
+        function initFirebase() {
             try {
-                channel = new BroadcastChannel('karaoke_channel');
-                channel.onmessage = (event) => {
-                    console.log('Mensaje recibido:', event.data);
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
+                firebaseConnected = true;
+                console.log('✅ Firebase inicializado en display.html');
+                atualizarDisplay();
+                
+                // Sincronizar cada cambio en tiempo real
+                const ref = db.ref('karaoke');
+                ref.on('value', (snapshot) => {
+                    console.log('📡 Datos actualizados en tiempo real');
                     atualizarDisplay();
-                };
-                console.log('BroadcastChannel iniciado');
-                updateDebug('BroadcastChannel OK', 'green');
-            } catch (e) {
-                console.log('BroadcastChannel no disponible, usando polling');
-                updateDebug('Usando Polling', 'orange');
+                });
+            } catch (error) {
+                console.error('❌ Error Firebase:', error);
+                firebaseConnected = false;
             }
         }
 
-        function updateDebug(status, color = 'black') {
-            const debug = document.getElementById('debug-status');
-            debug.innerText = status;
-            debug.style.color = color;
-            document.getElementById('debug-time').innerText = new Date().toLocaleTimeString();
-        }
-
         function atualizarDisplay() {
-            try {
-                const fila = JSON.parse(localStorage.getItem('karaoke_fila')) || [];
-                const filaManualFechada = JSON.parse(localStorage.getItem('karaoke_manual_fechada')) || false;
+            if (!firebaseConnected || !db) {
+                console.warn('⚠️ Firebase no disponible');
+                return;
+            }
 
-                // Update debug
-                document.getElementById('debug-fila').innerText = fila.length;
-                updateDebug('OK', 'green');
-
+            const ref = db.ref('karaoke');
+            ref.once('value', (snapshot) => {
+                const data = snapshot.val();
+                
                 // Ocultar todos los estados
                 document.getElementById('estado-inicial').classList.add('hidden');
                 document.getElementById('fila-vazia').classList.add('hidden');
                 document.getElementById('proximo-cantor').classList.add('hidden');
 
-                if (fila.length === 0) {
-                    if (filaManualFechada) {
+                if (!data || !data.fila || data.fila.length === 0) {
+                    if (data && data.manualFechada) {
                         document.getElementById('fila-vazia').classList.remove('hidden');
                     } else {
                         document.getElementById('estado-inicial').classList.remove('hidden');
@@ -435,7 +441,9 @@
                 }
 
                 // Mostrar próximo cantor
+                const fila = data.fila;
                 const proximo = fila[0];
+                
                 document.getElementById('cantor-nombre').innerText = proximo.nome;
                 document.getElementById('musica-titulo').innerText = proximo.musica;
                 document.getElementById('musica-artista').innerText = proximo.artista;
@@ -447,11 +455,14 @@
                 document.getElementById('tempo-display').innerText = tempoEstimado + ' min';
 
                 document.getElementById('proximo-cantor').classList.remove('hidden');
+            }).catch((error) => {
+                console.error('❌ Error al obtener datos:', error);
+            });
+        }
 
-                updateDebug('Mostrando próximo', 'green');
-            } catch (error) {
-                console.error('Error:', error);
-                updateDebug('Error: ' + error.message, 'red');
+        function resetarDisplay() {
+            if (confirm('Deseja resetar o display?')) {
+                atualizarDisplay();
             }
         }
 
@@ -469,20 +480,8 @@
 
         // Inicialización
         window.addEventListener('load', () => {
-            console.log('Página cargada');
-            initBroadcastChannel();
-            atualizarDisplay();
-            
-            // Polling cada 2 segundos como fallback
-            setInterval(atualizarDisplay, 2000);
-        });
-
-        // Escuchar cambios en localStorage (para otra pestaña del mismo navegador)
-        window.addEventListener('storage', (event) => {
-            if (event.key && event.key.startsWith('karaoke_')) {
-                console.log('Cambio detectado en localStorage');
-                atualizarDisplay();
-            }
+            console.log('📺 Display.html carregado');
+            initFirebase();
         });
     </script>
 </body>
