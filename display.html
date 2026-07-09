@@ -291,6 +291,18 @@
             color: #667eea;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
+
+        .debug-info {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #666;
+            max-width: 200px;
+        }
     </style>
 </head>
 <body>
@@ -304,6 +316,13 @@
     <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Pantalla completa">
         <i class="fas fa-expand"></i>
     </button>
+
+    <!-- Debug Info -->
+    <div class="debug-info" id="debug-info" style="display: none;">
+        <p>Status: <span id="debug-status">Carregando...</span></p>
+        <p>Fila: <span id="debug-fila">0</span> pessoas</p>
+        <p>Atualizado em: <span id="debug-time">-</span></p>
+    </div>
 
     <!-- Contenedor Principal -->
     <div class="main-container">
@@ -359,51 +378,80 @@
         <button class="control-btn" onclick="window.location.href='index.html'">
             <i class="fas fa-arrow-left mr-2"></i>Voltar
         </button>
-        <button class="control-btn control-btn-danger" onclick="resetarDisplay()">
-            <i class="fas fa-redo mr-2"></i>Resetar
+        <button class="control-btn" onclick="document.getElementById('debug-info').style.display = document.getElementById('debug-info').style.display === 'none' ? 'block' : 'none'">
+            <i class="fas fa-bug mr-2"></i>Debug
         </button>
     </div>
 
     <script>
         const TEMPO_MEDIO_MUSICA = 5; // minutos
+        let channel = null;
 
-        function atualizarDisplay() {
-            const fila = JSON.parse(localStorage.getItem('karaoke_fila')) || [];
-            const contagemCantores = JSON.parse(localStorage.getItem('karaoke_contagem')) || {};
-            const filaManualFechada = JSON.parse(localStorage.getItem('karaoke_manual_fechada')) || false;
-
-            // Ocultar todos los estados
-            document.getElementById('estado-inicial').classList.add('hidden');
-            document.getElementById('fila-vazia').classList.add('hidden');
-            document.getElementById('proximo-cantor').classList.add('hidden');
-
-            if (fila.length === 0) {
-                if (filaManualFechada) {
-                    document.getElementById('fila-vazia').classList.remove('hidden');
-                } else {
-                    document.getElementById('estado-inicial').classList.remove('hidden');
-                }
-                return;
+        // Inicializar BroadcastChannel si está disponible
+        function initBroadcastChannel() {
+            try {
+                channel = new BroadcastChannel('karaoke_channel');
+                channel.onmessage = (event) => {
+                    console.log('Mensaje recibido:', event.data);
+                    atualizarDisplay();
+                };
+                console.log('BroadcastChannel iniciado');
+                updateDebug('BroadcastChannel OK', 'green');
+            } catch (e) {
+                console.log('BroadcastChannel no disponible, usando polling');
+                updateDebug('Usando Polling', 'orange');
             }
-
-            // Mostrar próximo cantor
-            const proximo = fila[0];
-            document.getElementById('cantor-nombre').innerText = proximo.nome;
-            document.getElementById('musica-titulo').innerText = proximo.musica;
-            document.getElementById('musica-artista').innerText = proximo.artista;
-            document.getElementById('veces-cantadas').innerText = `${proximo.vezesCantadas + 1}ª vez`;
-            document.getElementById('proximos-na-fila').innerText = fila.length - 1;
-            
-            const tempoEstimado = (fila.length - 1) * TEMPO_MEDIO_MUSICA;
-            document.getElementById('tempo-espera-display').innerText = tempoEstimado;
-            document.getElementById('tempo-display').innerText = tempoEstimado + ' min';
-
-            document.getElementById('proximo-cantor').classList.remove('hidden');
         }
 
-        function resetarDisplay() {
-            if (confirm('Deseja resetar o display?')) {
-                atualizarDisplay();
+        function updateDebug(status, color = 'black') {
+            const debug = document.getElementById('debug-status');
+            debug.innerText = status;
+            debug.style.color = color;
+            document.getElementById('debug-time').innerText = new Date().toLocaleTimeString();
+        }
+
+        function atualizarDisplay() {
+            try {
+                const fila = JSON.parse(localStorage.getItem('karaoke_fila')) || [];
+                const filaManualFechada = JSON.parse(localStorage.getItem('karaoke_manual_fechada')) || false;
+
+                // Update debug
+                document.getElementById('debug-fila').innerText = fila.length;
+                updateDebug('OK', 'green');
+
+                // Ocultar todos los estados
+                document.getElementById('estado-inicial').classList.add('hidden');
+                document.getElementById('fila-vazia').classList.add('hidden');
+                document.getElementById('proximo-cantor').classList.add('hidden');
+
+                if (fila.length === 0) {
+                    if (filaManualFechada) {
+                        document.getElementById('fila-vazia').classList.remove('hidden');
+                    } else {
+                        document.getElementById('estado-inicial').classList.remove('hidden');
+                    }
+                    document.getElementById('tempo-display').innerText = '0 min';
+                    return;
+                }
+
+                // Mostrar próximo cantor
+                const proximo = fila[0];
+                document.getElementById('cantor-nombre').innerText = proximo.nome;
+                document.getElementById('musica-titulo').innerText = proximo.musica;
+                document.getElementById('musica-artista').innerText = proximo.artista;
+                document.getElementById('veces-cantadas').innerText = `${proximo.vezesCantadas + 1}ª vez`;
+                document.getElementById('proximos-na-fila').innerText = fila.length - 1;
+                
+                const tempoEstimado = (fila.length - 1) * TEMPO_MEDIO_MUSICA;
+                document.getElementById('tempo-espera-display').innerText = tempoEstimado;
+                document.getElementById('tempo-display').innerText = tempoEstimado + ' min';
+
+                document.getElementById('proximo-cantor').classList.remove('hidden');
+
+                updateDebug('Mostrando próximo', 'green');
+            } catch (error) {
+                console.error('Error:', error);
+                updateDebug('Error: ' + error.message, 'red');
             }
         }
 
@@ -419,14 +467,23 @@
             }
         }
 
-        // Atualizar cada 5 segundos
+        // Inicialización
         window.addEventListener('load', () => {
+            console.log('Página cargada');
+            initBroadcastChannel();
             atualizarDisplay();
-            setInterval(atualizarDisplay, 5000);
+            
+            // Polling cada 2 segundos como fallback
+            setInterval(atualizarDisplay, 2000);
         });
 
-        // Escuchar cambios en localStorage
-        window.addEventListener('storage', atualizarDisplay);
+        // Escuchar cambios en localStorage (para otra pestaña del mismo navegador)
+        window.addEventListener('storage', (event) => {
+            if (event.key && event.key.startsWith('karaoke_')) {
+                console.log('Cambio detectado en localStorage');
+                atualizarDisplay();
+            }
+        });
     </script>
 </body>
 </html>
