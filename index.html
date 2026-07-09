@@ -6,6 +6,9 @@
     <title>Karaokê Manager - Sistema de Fila Inteligente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
@@ -13,9 +16,18 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .bg-gradient-custom { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .firebase-status { position: fixed; top: 10px; right: 10px; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 100; }
+        .firebase-connected { background: #10b981; color: white; }
+        .firebase-disconnected { background: #ef4444; color: white; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+
+    <!-- Status Firebase -->
+    <div class="firebase-status firebase-disconnected" id="firebase-status">
+        <i class="fas fa-circle mr-2" style="animation: pulse 1s infinite;"></i>
+        <span id="status-text">Conectando ao Firebase...</span>
+    </div>
 
     <!-- Header / Navegação Simples para o Protótipo -->
     <nav class="bg-white shadow-sm mb-4">
@@ -158,14 +170,115 @@
     </main>
 
     <script>
+        // --- CONFIGURAÇÃO FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBVJ_demo_placeholder",
+            authDomain: "karaokebar-7a67f.firebaseapp.com",
+            databaseURL: "https://karaokebar-7a67f-default-rtdb.firebaseio.com",
+            projectId: "karaokebar-7a67f",
+            storageBucket: "karaokebar-7a67f.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef1234567890"
+        };
+
+        let db = null;
+        let firebaseConnected = false;
+        let useFirebase = false;
+
+        // Inicializar Firebase
+        function initFirebase() {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
+                firebaseConnected = true;
+                useFirebase = true;
+                updateFirebaseStatus(true);
+                console.log('Firebase inicializado com sucesso');
+                
+                // Sincronizar dados do Firebase
+                sincronizarComFirebase();
+            } catch (error) {
+                console.warn('Erro ao inicializar Firebase, usando localStorage:', error);
+                useFirebase = false;
+                updateFirebaseStatus(false);
+                carregarDoLocalStorage();
+            }
+        }
+
+        function updateFirebaseStatus(connected) {
+            const statusEl = document.getElementById('firebase-status');
+            const statusText = document.getElementById('status-text');
+            
+            if (connected) {
+                statusEl.className = 'firebase-status firebase-connected';
+                statusText.innerText = '🔥 Conectado ao Firebase';
+            } else {
+                statusEl.className = 'firebase-status firebase-disconnected';
+                statusText.innerText = '📱 Usando armazenamento local';
+            }
+        }
+
         // --- ESTADO DO SISTEMA ---
-        let fila = JSON.parse(localStorage.getItem('karaoke_fila')) || [];
-        let historico = JSON.parse(localStorage.getItem('karaoke_historico')) || [];
-        let contagemCantores = JSON.parse(localStorage.getItem('karaoke_contagem')) || {};
-        let filaManualFechada = JSON.parse(localStorage.getItem('karaoke_manual_fechada')) || false;
+        let fila = [];
+        let historico = [];
+        let contagemCantores = {};
+        let filaManualFechada = false;
 
         const TEMPO_MEDIO_MUSICA = 5; // minutos
         const HORARIO_LIMITE = "23:00";
+
+        // Sincronizar com Firebase
+        function sincronizarComFirebase() {
+            if (!useFirebase || !db) return;
+
+            const ref = db.ref('karaoke');
+            ref.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    fila = data.fila || [];
+                    historico = data.historico || [];
+                    contagemCantores = data.contagem || {};
+                    filaManualFechada = data.manualFechada || false;
+                    atualizarUI();
+                    console.log('Dados sincronizados do Firebase');
+                }
+            });
+        }
+
+        function salvarNoFirebase() {
+            if (!useFirebase || !db) {
+                salvarNoLocalStorage();
+                return;
+            }
+
+            try {
+                db.ref('karaoke').set({
+                    fila: fila,
+                    historico: historico,
+                    contagem: contagemCantores,
+                    manualFechada: filaManualFechada,
+                    ultimaAtualizacao: new Date().toISOString()
+                });
+                console.log('Dados salvos no Firebase');
+            } catch (error) {
+                console.error('Erro ao salvar no Firebase:', error);
+                salvarNoLocalStorage();
+            }
+        }
+
+        function salvarNoLocalStorage() {
+            localStorage.setItem('karaoke_fila', JSON.stringify(fila));
+            localStorage.setItem('karaoke_historico', JSON.stringify(historico));
+            localStorage.setItem('karaoke_contagem', JSON.stringify(contagemCantores));
+            localStorage.setItem('karaoke_manual_fechada', JSON.stringify(filaManualFechada));
+        }
+
+        function carregarDoLocalStorage() {
+            fila = JSON.parse(localStorage.getItem('karaoke_fila')) || [];
+            historico = JSON.parse(localStorage.getItem('karaoke_historico')) || [];
+            contagemCantores = JSON.parse(localStorage.getItem('karaoke_contagem')) || {};
+            filaManualFechada = JSON.parse(localStorage.getItem('karaoke_manual_fechada')) || false;
+        }
 
         // --- LÓGICA DE NAVEGAÇÃO ---
         function switchTab(tabId) {
@@ -175,13 +288,6 @@
         }
 
         // --- LÓGICA PRINCIPAL ---
-
-        function salvarDados() {
-            localStorage.setItem('karaoke_fila', JSON.stringify(fila));
-            localStorage.setItem('karaoke_historico', JSON.stringify(historico));
-            localStorage.setItem('karaoke_contagem', JSON.stringify(contagemCantores));
-            localStorage.setItem('karaoke_manual_fechada', JSON.stringify(filaManualFechada));
-        }
 
         function adicionarPedido(e) {
             e.preventDefault();
@@ -206,7 +312,7 @@
 
             fila.push(novoPedido);
             ordenarFila();
-            salvarDados();
+            salvarNoFirebase();
             atualizarUI();
 
             // Feedback visual
@@ -242,7 +348,7 @@
                     horario: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                 });
 
-                // Atualizar o contador de quem ainda está na fila (caso o mesmo cantor tenha mais músicas)
+                // Atualizar o contador de quem ainda está na fila
                 fila.forEach(p => {
                     if(p.nome.toLowerCase() === key) {
                         p.vezesCantadas = contagemCantores[key];
@@ -250,32 +356,30 @@
                 });
 
                 ordenarFila();
-                salvarDados();
+                salvarNoFirebase();
                 atualizarUI();
             }
         }
 
         function acaoRemover(id) {
             fila = fila.filter(p => p.id !== id);
-            salvarDados();
+            salvarNoFirebase();
             atualizarUI();
         }
 
         function acaoPular(id) {
-            // Pular apenas move para o final dos empatados em rodadas ou mantém a lógica de timestamp
-            // Aqui vamos apenas re-setar o timestamp para "agora" para ele ir para o fim da fila da sua rodada
             const index = fila.findIndex(p => p.id === id);
             if (index !== -1) {
                 fila[index].timestamp = Date.now();
                 ordenarFila();
-                salvarDados();
+                salvarNoFirebase();
                 atualizarUI();
             }
         }
 
         function toggleFilaManual() {
             filaManualFechada = !filaManualFechada;
-            salvarDados();
+            salvarNoFirebase();
             atualizarUI();
         }
 
@@ -285,7 +389,7 @@
                 historico = [];
                 contagemCantores = {};
                 filaManualFechada = false;
-                salvarDados();
+                salvarNoFirebase();
                 atualizarUI();
             }
         }
@@ -399,14 +503,17 @@
             }
         }
 
-        // Inicialização
+        // Inicialización
         document.getElementById('form-pedido').addEventListener('submit', adicionarPedido);
         
-        // Loop de atualização para checar o horário a cada minuto
+        // Loop de atualización
         setInterval(atualizarUI, 60000);
         
-        // Render inicial
-        atualizarUI();
+        // Inicializar
+        window.addEventListener('load', () => {
+            initFirebase();
+            atualizarUI();
+        });
     </script>
 </body>
 </html>
