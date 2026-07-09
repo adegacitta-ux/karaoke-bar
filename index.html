@@ -16,7 +16,17 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .bg-gradient-custom { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .firebase-status { position: fixed; top: 10px; right: 10px; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 100; }
+        .firebase-status { 
+            position: fixed; 
+            bottom: 20px; 
+            right: 20px; 
+            padding: 10px 16px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            z-index: 40;
+            pointer-events: none;
+        }
         .firebase-connected { background: #10b981; color: white; }
         .firebase-disconnected { background: #ef4444; color: white; }
     </style>
