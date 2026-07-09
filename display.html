@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Exibição - Karaokê Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800;900&display=swap');
+        * { font-family: 'Poppins', sans-serif; }
+        
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .display-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 60px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 1000px;
+            width: 100%;
+            animation: slideIn 0.8s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .titulo-proximo {
+            font-size: 48px;
+            color: #666;
+            margin-bottom: 30px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .cantor-nombre {
+            font-size: 72px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+            animation: scaleIn 0.6s ease-out;
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .musica-info {
+            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+            padding: 40px;
+            border-radius: 20px;
+            margin: 30px 0;
+        }
+
+        .musica-titulo {
+            font-size: 48px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .musica-artista {
+            font-size: 36px;
+            color: #666;
+            font-weight: 400;
+            margin-bottom: 20px;
+        }
+
+        .veces-cantadas {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .fila-info {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-around;
+            font-size: 32px;
+        }
+
+        .fila-stat {
+            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+            padding: 20px 40px;
+            border-radius: 15px;
+            flex: 1;
+            margin: 0 10px;
+        }
+
+        .stat-numero {
+            font-size: 48px;
+            font-weight: 900;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 18px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .estado-vacio {
+            font-size: 60px;
+            color: #ccc;
+            padding: 60px;
+        }
+
+        .control-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 30px;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            gap: 15px;
+            z-index: 50;
+        }
+
+        .control-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .control-btn:hover {
+            opacity: 0.8;
+        }
+
+        .control-btn-danger {
+            background: #ef4444;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7); }
+            50% { box-shadow: 0 0 0 20px rgba(102, 126, 234, 0); }
+        }
+
+        @media (max-width: 1024px) {
+            .display-card {
+                padding: 40px;
+            }
+
+            .cantor-nombre {
+                font-size: 52px;
+            }
+
+            .titulo-proximo {
+                font-size: 36px;
+            }
+
+            .musica-titulo {
+                font-size: 36px;
+            }
+
+            .musica-artista {
+                font-size: 28px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .display-card {
+                padding: 30px;
+            }
+
+            .logo {
+                font-size: 60px;
+            }
+
+            .cantor-nombre {
+                font-size: 40px;
+            }
+
+            .titulo-proximo {
+                font-size: 28px;
+            }
+
+            .musica-titulo {
+                font-size: 28px;
+            }
+
+            .musica-artista {
+                font-size: 22px;
+            }
+
+            .fila-info {
+                flex-direction: column;
+            }
+
+            .fila-stat {
+                margin: 10px 0;
+            }
+
+            .veces-cantadas {
+                font-size: 18px;
+            }
+        }
+
+        .fullscreen-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 40;
+            transition: transform 0.3s;
+        }
+
+        .fullscreen-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .timer {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 50px;
+            font-size: 28px;
+            font-weight: 700;
+            color: #667eea;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Timer -->
+    <div class="timer">
+        <i class="fas fa-hourglass-half mr-2"></i><span id="tempo-display">0 min</span>
+    </div>
+
+    <!-- Botón Fullscreen -->
+    <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Pantalla completa">
+        <i class="fas fa-expand"></i>
+    </button>
+
+    <!-- Contenedor Principal -->
+    <div class="main-container">
+        <div class="display-card pulse" id="display-card">
+            
+            <!-- Estado Inicial -->
+            <div id="estado-inicial" class="hidden">
+                <div class="logo">🎤</div>
+                <h1 class="titulo-proximo">Karaokê Pro</h1>
+                <p style="font-size: 32px; color: #999;">Aguardando próxima música...</p>
+            </div>
+
+            <!-- Fila Vazia -->
+            <div id="fila-vazia" class="hidden">
+                <div class="logo">🎵</div>
+                <h1 class="titulo-proximo">Fila Encerrada</h1>
+                <p style="font-size: 32px; color: #999; margin-top: 20px;">Obrigado por participar!</p>
+            </div>
+
+            <!-- Próximo Cantor -->
+            <div id="proximo-cantor" class="hidden">
+                <div class="logo">🎤</div>
+                <h1 class="titulo-proximo">Próximo a Cantar</h1>
+                
+                <div class="cantor-nombre" id="cantor-nombre">-</div>
+                
+                <div class="musica-info">
+                    <div class="musica-titulo" id="musica-titulo">-</div>
+                    <div class="musica-artista" id="musica-artista">-</div>
+                    <div class="veces-cantadas" id="veces-cantadas">0x</div>
+                </div>
+
+                <div class="fila-info">
+                    <div class="fila-stat">
+                        <div class="stat-numero" id="proximos-na-fila">0</div>
+                        <div class="stat-label">Próximos na Fila</div>
+                    </div>
+                    <div class="fila-stat">
+                        <div class="stat-numero" id="tempo-espera-display">0</div>
+                        <div class="stat-label">min de Espera</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Barra de Control -->
+    <div class="control-bar">
+        <button class="control-btn" onclick="atualizarDisplay()">
+            <i class="fas fa-sync mr-2"></i>Atualizar
+        </button>
+        <button class="control-btn" onclick="window.location.href='index.html'">
+            <i class="fas fa-arrow-left mr-2"></i>Voltar
+        </button>
+        <button class="control-btn control-btn-danger" onclick="resetarDisplay()">
+            <i class="fas fa-redo mr-2"></i>Resetar
+        </button>
+    </div>
+
+    <script>
+        const TEMPO_MEDIO_MUSICA = 5; // minutos
+
+        function atualizarDisplay() {
+            const fila = JSON.parse(localStorage.getItem('karaoke_fila')) || [];
+            const contagemCantores = JSON.parse(localStorage.getItem('karaoke_contagem')) || {};
+            const filaManualFechada = JSON.parse(localStorage.getItem('karaoke_manual_fechada')) || false;
+
+            // Ocultar todos los estados
+            document.getElementById('estado-inicial').classList.add('hidden');
+            document.getElementById('fila-vazia').classList.add('hidden');
+            document.getElementById('proximo-cantor').classList.add('hidden');
+
+            if (fila.length === 0) {
+                if (filaManualFechada) {
+                    document.getElementById('fila-vazia').classList.remove('hidden');
+                } else {
+                    document.getElementById('estado-inicial').classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Mostrar próximo cantor
+            const proximo = fila[0];
+            document.getElementById('cantor-nombre').innerText = proximo.nome;
+            document.getElementById('musica-titulo').innerText = proximo.musica;
+            document.getElementById('musica-artista').innerText = proximo.artista;
+            document.getElementById('veces-cantadas').innerText = `${proximo.vezesCantadas + 1}ª vez`;
+            document.getElementById('proximos-na-fila').innerText = fila.length - 1;
+            
+            const tempoEstimado = (fila.length - 1) * TEMPO_MEDIO_MUSICA;
+            document.getElementById('tempo-espera-display').innerText = tempoEstimado;
+            document.getElementById('tempo-display').innerText = tempoEstimado + ' min';
+
+            document.getElementById('proximo-cantor').classList.remove('hidden');
+        }
+
+        function resetarDisplay() {
+            if (confirm('Deseja resetar o display?')) {
+                atualizarDisplay();
+            }
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    alert(`Erro ao entrar em tela cheia: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // Atualizar cada 5 segundos
+        window.addEventListener('load', () => {
+            atualizarDisplay();
+            setInterval(atualizarDisplay, 5000);
+        });
+
+        // Escuchar cambios en localStorage
+        window.addEventListener('storage', atualizarDisplay);
+    </script>
+</body>
+</html>
