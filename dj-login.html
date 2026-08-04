@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DJ - Login</title>
+  <style>
+    /* Overlay de bloqueio */
+    #dj-login-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      flex-direction: column;
+    }
+    #dj-login-box { max-width: 380px; width: 100%; text-align: center; }
+    input[type="password"] { width: 100%; padding: 10px; margin: 10px 0; font-size: 16px; }
+    button { padding: 10px 16px; font-size: 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <!-- Sua UI do DJ vem aqui -->
+  <div id="dj-app">
+    <!-- Exemplo: conteúdo do DJ -->
+    <h1>Interface do DJ</h1>
+    <p>Conteúdo sensível do DJ (músicas, controles)</p>
+  </div>
+
+  <!-- Overlay de login -->
+  <div id="dj-login-overlay" aria-hidden="false">
+    <div id="dj-login-box">
+      <h2>Área do DJ — Insira a senha</h2>
+      <input id="dj-password" type="password" placeholder="Senha" />
+      <div>
+        <button id="dj-submit">Entrar</button>
+        <button id="dj-logout" style="display:none;margin-left:8px">Sair</button>
+      </div>
+      <p id="dj-error" style="color:#ff8a8a; display:none">Senha incorreta</p>
+    </div>
+  </div>
+
+  <script>
+    // Substitua esse hash pelo SHA-256 da sua senha real.
+    // ATENÇÃO: qualquer pessoa pode ver esse hash no código — não é seguro para segredos reais.
+    const STORED_HASH = "REPLACE_WITH_HASH";
+
+    async function sha256hex(str) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    function showOverlay(show) {
+      const ov = document.getElementById('dj-login-overlay');
+      ov.style.display = show ? 'flex' : 'none';
+      ov.setAttribute('aria-hidden', show ? 'false' : 'true');
+    }
+
+    async function checkAuth() {
+      const ok = localStorage.getItem('dj-auth') === '1';
+      if (ok) { showOverlay(false); } else { showOverlay(true); }
+    }
+
+    document.getElementById('dj-submit').addEventListener('click', async () => {
+      const pw = document.getElementById('dj-password').value || '';
+      const h = await sha256hex(pw);
+      if (h === STORED_HASH) {
+        localStorage.setItem('dj-auth', '1');
+        showOverlay(false);
+        document.getElementById('dj-error').style.display = 'none';
+        document.getElementById('dj-logout').style.display = 'inline-block';
+      } else {
+        document.getElementById('dj-error').style.display = 'block';
+      }
+    });
+
+    document.getElementById('dj-logout').addEventListener('click', () => {
+      localStorage.removeItem('dj-auth');
+      document.getElementById('dj-password').value = '';
+      document.getElementById('dj-logout').style.display = 'none';
+      showOverlay(true);
+    });
+
+    // Ao carregar, verifica auth
+    checkAuth();
+  </script>
+
+  <!-- Instruções rápidas:
+    1) Para gerar o hash da senha, abra o console do navegador (F12 → Console) e rode:
+       (async()=>{ const s = "SUA_SENHA"; const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); console.log(Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('')); })();
+    2) Substitua REPLACE_WITH_HASH pelo valor impresso.
+    3) Coloque este arquivo no GitHub Pages (ex: dj-login.html) e abra https://<seu-usuario>.github.io/karaoke-bar/dj-login.html
+  -->
+</body>
+</html>
