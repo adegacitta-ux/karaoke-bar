@@ -336,16 +336,17 @@
                 <p style="font-size: 32px; color: #999; margin-top: 20px;">Obrigado por participar!</p>
             </div>
 
-            <!-- Próximo Cantor -->
+            <!-- Apresentação em Andamento ou Próximo Cantor -->
             <div id="proximo-cantor" class="hidden">
                 <div class="logo">🎤</div>
-                <h1 class="titulo-proximo">Próximo a Cantar</h1>
+                <h1 class="titulo-proximo" id="titulo-apresentacao">Próximo a Cantar</h1>
                 
                 <div class="cantor-nombre" id="cantor-nombre">-</div>
                 
                 <div class="musica-info">
                     <div class="musica-titulo" id="musica-titulo">-</div>
                     <div class="musica-artista" id="musica-artista">-</div>
+                    <div style="margin-top:12px;" id="avaliacao-info"></div>
                     <div class="veces-cantadas" id="veces-cantadas">0x</div>
                 </div>
 
@@ -407,12 +408,19 @@
                 const ref = db.ref('karaoke');
                 ref.on('value', (snapshot) => {
                     console.log('📡 Datos actualizados en tiempo real');
-                    atualizarDisplay();
+                    atualizarDisplayWithData(snapshot.val());
                 });
             } catch (error) {
                 console.error('❌ Error Firebase:', error);
                 firebaseConnected = false;
             }
+        }
+
+        function calcularMediaAvaliacoes(avaliacoes) {
+            const notas = Object.values(avaliacoes || {}).map(n => Number(n)).filter(n => !isNaN(n));
+            if (notas.length === 0) return null;
+            const soma = notas.reduce((a,b) => a + b, 0);
+            return Number((soma / notas.length).toFixed(2));
         }
 
         function atualizarDisplay() {
@@ -423,41 +431,89 @@
 
             const ref = db.ref('karaoke');
             ref.once('value', (snapshot) => {
-                const data = snapshot.val();
-                
-                // Ocultar todos los estados
-                document.getElementById('estado-inicial').classList.add('hidden');
-                document.getElementById('fila-vazia').classList.add('hidden');
-                document.getElementById('proximo-cantor').classList.add('hidden');
+                atualizarDisplayWithData(snapshot.val());
+            }).catch((error) => {
+                console.error('❌ Error al obtener datos:', error);
+            });
+        }
 
-                if (!data || !data.fila || data.fila.length === 0) {
-                    if (data && data.manualFechada) {
-                        document.getElementById('fila-vazia').classList.remove('hidden');
-                    } else {
-                        document.getElementById('estado-inicial').classList.remove('hidden');
-                    }
-                    document.getElementById('tempo-display').innerText = '0 min';
-                    return;
+        function atualizarDisplayWithData(data) {
+            // Ocultar todos los estados
+            document.getElementById('estado-inicial').classList.add('hidden');
+            document.getElementById('fila-vazia').classList.add('hidden');
+            document.getElementById('proximo-cantor').classList.add('hidden');
+
+            // Actualizar status firebase badge
+            const statusText = document.getElementById('status-text');
+            if (firebaseConnected) {
+                statusText.innerText = '🔥 Conectado ao Firebase';
+            } else {
+                statusText.innerText = '⚠️ Offline';
+            }
+
+            if (!data) {
+                document.getElementById('estado-inicial').classList.remove('hidden');
+                document.getElementById('tempo-display').innerText = '0 min';
+                return;
+            }
+
+            // Se houver uma apresentação em andamento, priorizamos ela
+            if (data.apresentacaoAtual) {
+                const ap = data.apresentacaoAtual;
+                const media = calcularMediaAvaliacoes(ap.avaliacoes);
+                const votos = Object.keys(ap.avaliacoes || {}).length;
+
+                document.getElementById('titulo-apresentacao').innerText = 'Apresentação em Andamento';
+                document.getElementById('cantor-nombre').innerText = ap.nome || '-';
+                document.getElementById('musica-titulo').innerText = ap.musica || '-';
+                document.getElementById('musica-artista').innerText = ap.artista || '-';
+
+                const avalArea = document.getElementById('avaliacao-info');
+                if (media !== null) {
+                    avalArea.innerHTML = `<div style="font-size:18px;color:#333;font-weight:700;">Avaliação média: ★ ${media} <span style="font-size:12px;color:#666;margin-left:8px;">(${votos} voto(s))</span></div>`;
+                } else {
+                    avalArea.innerHTML = `<div style="font-size:16px;color:#666;">Sem avaliações ainda — incentive o público a votar!</div>`;
                 }
 
-                // Mostrar próximo cantor
-                const fila = data.fila;
-                const proximo = fila[0];
-                
-                document.getElementById('cantor-nombre').innerText = proximo.nome;
-                document.getElementById('musica-titulo').innerText = proximo.musica;
-                document.getElementById('musica-artista').innerText = proximo.artista;
-                document.getElementById('veces-cantadas').innerText = `${proximo.vezesCantadas + 1}ª vez`;
-                document.getElementById('proximos-na-fila').innerText = fila.length - 1;
-                
-                const tempoEstimado = (fila.length - 1) * TEMPO_MEDIO_MUSICA;
+                // vezes cantadas: se disponível no nó (poder vir com o objeto), senão '-' 
+                document.getElementById('veces-cantadas').innerText = '-';
+
+                // info de fila
+                const fila = data.fila || [];
+                document.getElementById('proximos-na-fila').innerText = Math.max(0, fila.length);
+                const tempoEstimado = Math.max(0, fila.length) * TEMPO_MEDIO_MUSICA;
                 document.getElementById('tempo-espera-display').innerText = tempoEstimado;
                 document.getElementById('tempo-display').innerText = tempoEstimado + ' min';
 
                 document.getElementById('proximo-cantor').classList.remove('hidden');
-            }).catch((error) => {
-                console.error('❌ Error al obtener datos:', error);
-            });
+                return;
+            }
+
+            // Sem apresentacaoAtual: usamos a fila para mostrar o próximo
+            const fila = data.fila || [];
+            if (!fila || fila.length === 0) {
+                if (data.manualFechada) {
+                    document.getElementById('fila-vazia').classList.remove('hidden');
+                } else {
+                    document.getElementById('estado-inicial').classList.remove('hidden');
+                }
+                document.getElementById('tempo-display').innerText = '0 min';
+                return;
+            }
+
+            const proximo = fila[0];
+            document.getElementById('titulo-apresentacao').innerText = 'Próximo a Cantar';
+            document.getElementById('cantor-nombre').innerText = proximo.nome || '-';
+            document.getElementById('musica-titulo').innerText = proximo.musica || '-';
+            document.getElementById('musica-artista').innerText = proximo.artista || '-';
+            document.getElementById('veces-cantadas').innerText = (typeof proximo.vezesCantadas !== 'undefined') ? `${proximo.vezesCantadas + 1}ª vez` : '-';
+
+            document.getElementById('proximos-na-fila').innerText = Math.max(0, fila.length - 1);
+            const tempoEstimado = Math.max(0, fila.length - 1) * TEMPO_MEDIO_MUSICA;
+            document.getElementById('tempo-espera-display').innerText = tempoEstimado;
+            document.getElementById('tempo-display').innerText = tempoEstimado + ' min';
+
+            document.getElementById('proximo-cantor').classList.remove('hidden');
         }
 
         function resetarDisplay() {
