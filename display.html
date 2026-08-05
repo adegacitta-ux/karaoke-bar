@@ -39,6 +39,8 @@
             text-align: center;
             max-width: 1000px;
             width: 100%;
+            max-height: 92vh;
+            overflow-y: auto;
             animation: slideIn 0.8s ease-out;
         }
 
@@ -304,9 +306,78 @@
             background: #10b981;
             color: white;
         }
+
+        /* Notas musicais flutuando no fundo */
+        .notas-flutuantes {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .nota-flutuante {
+            position: absolute;
+            bottom: -60px;
+            color: rgba(255, 255, 255, 0.18);
+            animation: subirNota linear infinite;
+        }
+
+        @keyframes subirNota {
+            0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-110vh) rotate(25deg); opacity: 0; }
+        }
+
+        .main-container, .qr-card, .control-bar, .timer, .firebase-status, .fullscreen-btn {
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Card do QR Code para pedidos */
+        .qr-card {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.97);
+            border-radius: 20px;
+            padding: 16px 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            z-index: 50;
+        }
+
+        .qr-card img { width: 90px; height: 90px; border-radius: 8px; }
+
+        .qr-card .qr-texto { text-align: left; max-width: 160px; }
+        .qr-card .qr-titulo { font-size: 15px; font-weight: 800; color: #333; line-height: 1.2; }
+        .qr-card .qr-sub { font-size: 12px; color: #667eea; font-weight: 600; margin-top: 4px; }
+
+        /* Lista de próximos na fila, dentro do card principal */
+        .mini-fila-lista { margin-top: 30px; text-align: left; }
+        .mini-fila-titulo { font-size: 18px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; text-align: center; }
+        .mini-fila-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #f8f9ff; border-radius: 12px; padding: 12px 20px; margin-bottom: 8px;
+        }
+        .mini-fila-item .mini-fila-nome { font-weight: 700; color: #444; font-size: 20px; }
+        .mini-fila-item .mini-fila-musica { color: #888; font-size: 15px; }
+        .mini-fila-posicao { background: #667eea; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; margin-right: 12px; }
+
+        @media (max-width: 768px) {
+            .qr-card { flex-direction: column; text-align: center; padding: 12px 16px; }
+            .qr-card .qr-texto { text-align: center; max-width: none; }
+            .qr-card img { width: 70px; height: 70px; }
+        }
     </style>
 </head>
 <body>
+
+    <!-- Notas musicais decorativas -->
+    <div class="notas-flutuantes" id="notas-flutuantes"></div>
 
     <!-- Status Firebase -->
     <div class="firebase-status" id="firebase-status">
@@ -324,27 +395,36 @@
         <i class="fas fa-expand"></i>
     </button>
 
+    <!-- Card com QR Code para pedir música -->
+    <div class="qr-card">
+        <img id="qr-code-img" src="" alt="QR Code para pedir música" />
+        <div class="qr-texto">
+            <div class="qr-titulo">Quer cantar?</div>
+            <div class="qr-sub"><i class="fas fa-qrcode mr-1"></i>Escaneie e peça sua música!</div>
+        </div>
+    </div>
+
     <!-- Contenedor Principal -->
     <div class="main-container">
         <div class="display-card pulse" id="display-card">
             
             <!-- Estado Inicial -->
             <div id="estado-inicial" class="hidden">
-                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" />
+                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" onerror="this.style.display='none'"/>
                 <h1 class="titulo-proximo">Karaokê Do Città</h1>
                 <p style="font-size: 32px; color: #999;">Aguardando próxima música...</p>
             </div>
 
             <!-- Fila Vazia -->
             <div id="fila-vazia" class="hidden">
-                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" />
+                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" onerror="this.style.display='none'"/>
                 <h1 class="titulo-proximo">Fila Encerrada</h1>
                 <p style="font-size: 32px; color: #999; margin-top: 20px;">Obrigado por participar!</p>
             </div>
 
             <!-- Apresentação em Andamento ou Próximo Cantor -->
             <div id="proximo-cantor" class="hidden">
-                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" />
+                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" onerror="this.style.display='none'"/>
                 <h1 class="titulo-proximo" id="titulo-apresentacao">Próximo a Cantar</h1>
                 
                 <div class="cantor-nombre" id="cantor-nombre">-</div>
@@ -365,6 +445,15 @@
                         <div class="stat-numero" id="tempo-espera-display">0</div>
                         <div class="stat-label">min de Espera</div>
                     </div>
+                    <div class="fila-stat">
+                        <div class="stat-numero" id="ja-cantadas-hoje">0</div>
+                        <div class="stat-label">Já Cantaram Hoje</div>
+                    </div>
+                </div>
+
+                <div class="mini-fila-lista" id="mini-fila-lista">
+                    <div class="mini-fila-titulo">A Seguir</div>
+                    <div id="mini-fila-itens"></div>
                 </div>
             </div>
 
@@ -400,6 +489,31 @@
         let db = null;
         let firebaseConnected = false;
         const TEMPO_MEDIO_MUSICA = 5; // minutos
+
+        // Gera notas musicais flutuando no fundo, para dar mais vida à tela
+        function criarNotasFlutuantes() {
+            const container = document.getElementById('notas-flutuantes');
+            const icones = ['fa-music', 'fa-microphone', 'fa-headphones-alt'];
+            const total = 14;
+            for (let i = 0; i < total; i++) {
+                const nota = document.createElement('i');
+                const icone = icones[Math.floor(Math.random() * icones.length)];
+                nota.className = `fas ${icone} nota-flutuante`;
+                nota.style.left = `${Math.random() * 100}%`;
+                nota.style.fontSize = `${20 + Math.random() * 30}px`;
+                nota.style.animationDuration = `${12 + Math.random() * 10}s`;
+                nota.style.animationDelay = `${Math.random() * 15}s`;
+                container.appendChild(nota);
+            }
+        }
+
+        // Monta o QR Code apontando para a página de pedidos (index.html), 
+        // usando a mesma pasta/domínio de onde o display.html está sendo servido
+        function configurarQrCode() {
+            const urlPedidos = new URL('index.html', window.location.href).href;
+            const qrImg = document.getElementById('qr-code-img');
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlPedidos)}`;
+        }
 
         // Inicializar Firebase
         function initFirebase() {
@@ -448,6 +562,7 @@
             document.getElementById('estado-inicial').classList.add('hidden');
             document.getElementById('fila-vazia').classList.add('hidden');
             document.getElementById('proximo-cantor').classList.add('hidden');
+            document.getElementById('mini-fila-lista').classList.add('hidden');
 
             // Actualizar status firebase badge
             const statusText = document.getElementById('status-text');
@@ -476,7 +591,7 @@
 
                 const avalArea = document.getElementById('avaliacao-info');
                 if (media !== null) {
-                    avalArea.innerHTML = `<div style="font-size:18px;color:#333;font-weight:700;">Avaliação média: ★ ${media} <span style="font-size:12px;color:#666;margin-left:8px;">(${voto[...]
+                    avalArea.innerHTML = `<div style="font-size:18px;color:#333;font-weight:700;">Avaliação média: ★ ${media} <span style="font-size:12px;color:#666;margin-left:8px;">(${votos} ${votos === 1 ? 'voto' : 'votos'})</span></div>`;
                 } else {
                     avalArea.innerHTML = `<div style="font-size:16px;color:#666;">Sem avaliações ainda — incentive o público a votar!</div>`;
                 }
@@ -490,6 +605,9 @@
                 const tempoEstimado = Math.max(0, fila.length) * TEMPO_MEDIO_MUSICA;
                 document.getElementById('tempo-espera-display').innerText = tempoEstimado;
                 document.getElementById('tempo-display').innerText = tempoEstimado + ' min';
+                document.getElementById('ja-cantadas-hoje').innerText = (data.historico || []).length;
+
+                popularMiniFila(fila, 0);
 
                 document.getElementById('proximo-cantor').classList.remove('hidden');
                 return;
@@ -513,13 +631,43 @@
             document.getElementById('musica-titulo').innerText = proximo.musica || '-';
             document.getElementById('musica-artista').innerText = proximo.artista || '-';
             document.getElementById('veces-cantadas').innerText = (typeof proximo.vezesCantadas !== 'undefined') ? `${proximo.vezesCantadas + 1}ª vez` : '-';
+            document.getElementById('avaliacao-info').innerHTML = '';
 
             document.getElementById('proximos-na-fila').innerText = Math.max(0, fila.length - 1);
             const tempoEstimado = Math.max(0, fila.length - 1) * TEMPO_MEDIO_MUSICA;
             document.getElementById('tempo-espera-display').innerText = tempoEstimado;
             document.getElementById('tempo-display').innerText = tempoEstimado + ' min';
+            document.getElementById('ja-cantadas-hoje').innerText = (data.historico || []).length;
+
+            popularMiniFila(fila, 1);
 
             document.getElementById('proximo-cantor').classList.remove('hidden');
+        }
+
+        // Preenche a lista "A Seguir" com os próximos da fila (a partir do índice 'partirDe'),
+        // mostrando até 4 nomes
+        function popularMiniFila(fila, partirDe) {
+            const container = document.getElementById('mini-fila-itens');
+            const wrapper = document.getElementById('mini-fila-lista');
+            const proximos = fila.slice(partirDe, partirDe + 4);
+
+            if (proximos.length === 0) {
+                wrapper.classList.add('hidden');
+                return;
+            }
+
+            wrapper.classList.remove('hidden');
+            container.innerHTML = proximos.map((p, i) => `
+                <div class="mini-fila-item">
+                    <div style="display:flex;align-items:center;">
+                        <span class="mini-fila-posicao">${i + 1}</span>
+                        <div>
+                            <div class="mini-fila-nome">${p.nome}</div>
+                            <div class="mini-fila-musica">${p.musica} — ${p.artista}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
         }
 
         function resetarDisplay() {
@@ -543,6 +691,8 @@
         // Inicialización
         window.addEventListener('load', () => {
             console.log('📺 Display.html carregado');
+            criarNotasFlutuantes();
+            configurarQrCode();
             initFirebase();
         });
     </script>
