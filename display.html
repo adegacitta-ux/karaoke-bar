@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Exibição - Karaokê Pro</title>
+    <title>Painel de Exibição - Karaokê Do Città</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Firebase SDK -->
@@ -62,6 +62,12 @@
         @keyframes bounce {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-20px); }
+        }
+
+        .display-logo {
+            width: 160px;
+            height: auto;
+            margin-bottom: 20px;
         }
 
         .titulo-proximo {
@@ -324,21 +330,21 @@
             
             <!-- Estado Inicial -->
             <div id="estado-inicial" class="hidden">
-                <div class="logo">🎤</div>
-                <h1 class="titulo-proximo">Karaokê Pro</h1>
+                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" />
+                <h1 class="titulo-proximo">Karaokê Do Città</h1>
                 <p style="font-size: 32px; color: #999;">Aguardando próxima música...</p>
             </div>
 
             <!-- Fila Vazia -->
             <div id="fila-vazia" class="hidden">
-                <div class="logo">🎵</div>
+                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" />
                 <h1 class="titulo-proximo">Fila Encerrada</h1>
                 <p style="font-size: 32px; color: #999; margin-top: 20px;">Obrigado por participar!</p>
             </div>
 
             <!-- Apresentação em Andamento ou Próximo Cantor -->
             <div id="proximo-cantor" class="hidden">
-                <div class="logo">🎤</div>
+                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" />
                 <h1 class="titulo-proximo" id="titulo-apresentacao">Próximo a Cantar</h1>
                 
                 <div class="cantor-nombre" id="cantor-nombre">-</div>
@@ -470,7 +476,7 @@
 
                 const avalArea = document.getElementById('avaliacao-info');
                 if (media !== null) {
-                    avalArea.innerHTML = `<div style="font-size:18px;color:#333;font-weight:700;">Avaliação média: ★ ${media} <span style="font-size:12px;color:#666;margin-left:8px;">(${votos} voto(s))</span></div>`;
+                    avalArea.innerHTML = `<div style="font-size:18px;color:#333;font-weight:700;">Avaliação média: ★ ${media} <span style="font-size:12px;color:#666;margin-left:8px;">(${voto[...]
                 } else {
                     avalArea.innerHTML = `<div style="font-size:16px;color:#666;">Sem avaliações ainda — incentive o público a votar!</div>`;
                 }
