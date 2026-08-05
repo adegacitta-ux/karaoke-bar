@@ -77,15 +77,22 @@
                         <form id="form-pedido" class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Seu Nome / Apelido</label>
-                                <input type="text" id="input-nome" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 out[...]"/>
+                                <input type="text" id="input-nome" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
                             </div>
+
+                            <!-- NOVO CAMPO: Número da Mesa -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Número da Mesa (opcional)</label>
+                                <input type="text" id="input-mesa" placeholder="Ex: 12" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                            </div>
+
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Nome da Música</label>
-                                <input type="text" id="input-musica" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 o[...]"/>
+                                <input type="text" id="input-musica" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Artista</label>
-                                <input type="text" id="input-artista" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 [...]"/>
+                                <input type="text" id="input-artista" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
                             </div>
                             <button type="submit" id="btn-enviar" class="w-full bg-gradient-custom text-white font-bold py-3 rounded-lg shadow-lg hover:opacity-90 transition-all">
                                 ENVIAR PEDIDO
@@ -151,7 +158,7 @@
                                 <span id="admin-tempo-espera" class="font-bold text-orange-600">0 min</span>
                             </div>
                             <div class="pt-4">
-                                <button id="btn-toggle-fila" onclick="toggleFilaManual()" class="w-full py-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 bord[...]">
+                                <button id="btn-toggle-fila" onclick="toggleFilaManual()" class="w-full py-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 border-2 border-red-600 text-red-600 hover:bg-red-50">
                                     <i class="fas fa-lock"></i> <span>Fechar Fila Manualmente</span>
                                 </button>
                             </div>
@@ -435,12 +442,14 @@
             }
 
             const nome = document.getElementById('input-nome').value.trim();
+            const mesa = document.getElementById('input-mesa').value.trim();
             const musica = document.getElementById('input-musica').value.trim();
             const artista = document.getElementById('input-artista').value.trim();
 
             const novoPedido = {
                 id: Date.now(),
                 nome: nome,
+                mesa: mesa || null,
                 musica: musica,
                 artista: artista,
                 timestamp: new Date().getTime(),
@@ -597,7 +606,10 @@
                     tr.className = "hover:bg-gray-50 transition-colors";
                     tr.innerHTML = `
                         <td class="px-6 py-4 font-bold text-gray-400">${index + 1}</td>
-                        <td class="px-6 py-4 font-semibold text-gray-800">${pedido.nome}</td>
+                        <td class="px-6 py-4 font-semibold text-gray-800">
+                            ${pedido.nome}
+                            ${pedido.mesa ? `<div class="text-xs text-gray-400 mt-1">Mesa: ${pedido.mesa}</div>` : ''}
+                        </td>
                         <td class="px-6 py-4 text-gray-600">${pedido.musica} <br> <span class="text-xs text-gray-400">${pedido.artista}</span></td>
                         <td class="px-6 py-4">
                             <span class="px-2 py-1 bg-gray-100 rounded text-xs font-bold">${pedido.vezesCantadas}x</span>
@@ -629,8 +641,9 @@
                     li.className = "p-4 flex justify-between items-center";
                     li.innerHTML = `
                         <div>
-                            <span class="font-bold text-gray-700">${item.nome}</span> 
-                            <span class="text-gray-500 mx-2">cantou</span> 
+                            <span class="font-bold text-gray-700">${item.nome}</span>
+                            ${item.mesa ? `<span class="text-gray-500 mx-2">| Mesa: ${item.mesa}</span>` : ''}
+                            <span class="text-gray-500 mx-2">cantou</span>
                             <span class="text-indigo-600 font-medium">${item.musica}</span>
                         </div>
                         <span class="text-xs text-gray-400">${item.horario}</span>
@@ -656,7 +669,7 @@
                         li.innerHTML = `
                             <div>
                                 <div class="font-bold text-gray-800">${i + 1}. ${p.nome}</div>
-                                <div class="text-sm text-gray-500">${p.musica} — ${p.artista}</div>
+                                <div class="text-sm text-gray-500">${p.musica} — ${p.artista}${p.mesa ? ` <span class="mx-2">| Mesa: ${p.mesa}</span>` : ''}</div>
                             </div>
                             <div class="text-xs text-gray-400 font-bold">${p.vezesCantadas}x</div>
                         `;
