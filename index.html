@@ -47,6 +47,11 @@
         .star-rating.voted i:hover { transform: none; }
         .star-rating i.selected { color: #f59e0b; }
         .mini-stars { color: #f59e0b; font-size: 14px; }
+
+        @keyframes pulse-banner {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.25); }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -55,6 +60,15 @@
     <div class="firebase-status firebase-disconnected" id="firebase-status">
         <i class="fas fa-circle mr-2" style="animation: pulse 1s infinite;"></i>
         <span id="status-text">Conectando ao Firebase...</span>
+    </div>
+
+    <!-- Banner "É a sua vez" -->
+    <div id="minha-vez-banner" class="hidden fixed top-0 inset-x-0 z-50 bg-gradient-custom text-white px-4 py-4 shadow-lg flex items-center justify-between gap-3" style="animation: pulse-banner 1.5s infinite;">
+        <div class="flex items-center gap-3">
+            <i class="fas fa-microphone text-2xl"></i>
+            <span class="font-bold text-lg" id="minha-vez-texto">Prepare-se! Você é o próximo a cantar.</span>
+        </div>
+        <button onclick="document.getElementById('minha-vez-banner').classList.add('hidden')" class="text-white text-xl leading-none px-2" aria-label="Fechar aviso">&times;</button>
     </div>
 
     <!-- Header / Navegação Simples para o Protótipo -->
@@ -88,14 +102,24 @@
                         </div>
 
                         <!-- Info de Tempo -->
-                        <div class="mb-6 flex justify-between items-center bg-indigo-50 p-3 rounded-lg text-indigo-800 text-sm font-medium">
+                        <div class="mb-4 flex justify-between items-center bg-indigo-50 p-3 rounded-lg text-indigo-800 text-sm font-medium">
                             <span><i class="fas fa-hourglass-half mr-2"></i>Espera estimada:</span>
                             <span id="cliente-tempo-espera">0 min</span>
                         </div>
 
+                        <!-- Toggle de Notificação -->
+                        <label class="mb-6 flex items-center justify-between bg-yellow-50 border border-yellow-200 p-3 rounded-lg text-sm cursor-pointer select-none">
+                            <span class="text-gray-700"><i class="fas fa-bell mr-2 text-yellow-600"></i>Avisar quando for minha vez</span>
+                            <input type="checkbox" id="notif-toggle" class="w-5 h-5 accent-indigo-600" />
+                        </label>
+                        <p id="notif-status" class="hidden -mt-4 mb-6 text-xs text-gray-500"></p>
+
                         <form id="form-pedido" class="space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Seu Nome / Apelido</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1 flex justify-between items-center">
+                                    <span>Seu Nome / Apelido</span>
+                                    <button type="button" id="btn-nao-e-voce" class="text-xs font-normal text-indigo-500 hover:underline hidden">Não é você? Trocar</button>
+                                </label>
                                 <input type="text" id="input-nome" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
                             </div>
 
@@ -408,6 +432,129 @@
             return { media: Number((soma / notas.length).toFixed(1)), votos: notas.length };
         }
 
+        // --- NOTIFICAÇÃO "É A SUA VEZ" (via Notification API do navegador + som) ---
+        // Não depende de servidor/API paga: funciona enquanto o cliente mantiver
+        // a aba do site aberta no celular/computador.
+
+        function notifAtiva() {
+            return localStorage.getItem('karaoke_notif_ativo') === '1';
+        }
+
+        function getMeusPedidos() {
+            try { return JSON.parse(localStorage.getItem('karaoke_meus_pedidos')) || []; }
+            catch (e) { return []; }
+        }
+
+        function salvarMeusPedidos(lista) {
+            localStorage.setItem('karaoke_meus_pedidos', JSON.stringify(lista));
+        }
+
+        function getNotificados() {
+            try { return JSON.parse(localStorage.getItem('karaoke_notificados')) || []; }
+            catch (e) { return []; }
+        }
+
+        function salvarNotificados(lista) {
+            localStorage.setItem('karaoke_notificados', JSON.stringify(lista));
+        }
+
+        // Toca um bipe simples via Web Audio API — não depende de nenhum arquivo de áudio
+        function tocarBipe() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                [0, 0.22, 0.44].forEach((delay, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = i === 2 ? 1046 : 880;
+                    gain.gain.setValueAtTime(0.0001, ctx.currentTime + delay);
+                    gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + delay + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + 0.2);
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start(ctx.currentTime + delay);
+                    osc.stop(ctx.currentTime + delay + 0.22);
+                });
+            } catch (e) { console.warn('Não foi possível tocar o bipe:', e); }
+        }
+
+        // Pede permissão de notificação ao navegador (precisa ser chamado a partir de um clique do usuário)
+        function pedirPermissaoNotificacao() {
+            const statusEl = document.getElementById('notif-status');
+            if (!('Notification' in window)) {
+                statusEl.innerText = 'Seu navegador não suporta notificações — mas o aviso sonoro na tela ainda vai funcionar.';
+                statusEl.classList.remove('hidden');
+                return;
+            }
+            if (Notification.permission === 'granted') {
+                statusEl.innerText = '🔔 Notificações ativadas.';
+                statusEl.classList.remove('hidden');
+                return;
+            }
+            if (Notification.permission === 'denied') {
+                statusEl.innerText = 'Notificações bloqueadas no navegador — o aviso vai aparecer só na tela do site.';
+                statusEl.classList.remove('hidden');
+                return;
+            }
+            Notification.requestPermission().then(permissao => {
+                statusEl.classList.remove('hidden');
+                statusEl.innerText = permissao === 'granted'
+                    ? '🔔 Notificações ativadas.'
+                    : 'Sem problemas — o aviso ainda vai aparecer na tela do site enquanto estiver aberto.';
+            });
+        }
+
+        // Associa o pedido recém-criado a este dispositivo, para acompanharmos a vez dele
+        function registrarMeuPedido(id) {
+            const meus = getMeusPedidos();
+            meus.push(id);
+            salvarMeusPedidos(meus);
+        }
+
+        // Verifica se algum dos "meus pedidos" chegou à posição 1 da fila e, se sim, avisa
+        function verificarMinhaVez() {
+            let meus = getMeusPedidos();
+            if (meus.length === 0) return;
+
+            // Limpa da lista quem já não está mais esperando (cantou, foi removido, etc.)
+            const idsNaFila = new Set(fila.map(p => p.id));
+            const idsEmAndamento = apresentacaoAtual ? new Set([apresentacaoAtual.id]) : new Set();
+            meus = meus.filter(id => idsNaFila.has(id) || idsEmAndamento.has(id));
+            salvarMeusPedidos(meus);
+
+            if (fila.length === 0) return;
+            const proximoId = fila[0].id;
+            if (!meus.includes(proximoId)) return;
+
+            let notificados = getNotificados();
+            if (notificados.includes(proximoId)) return; // já avisamos para este pedido
+
+            const pedido = fila[0];
+            dispararAvisoDeVez(pedido);
+
+            notificados.push(proximoId);
+            salvarNotificados(notificados);
+        }
+
+        function dispararAvisoDeVez(pedido) {
+            // 1) Som
+            tocarBipe();
+
+            // 2) Banner na própria tela (funciona sempre, mesmo sem permissão de notificação)
+            const banner = document.getElementById('minha-vez-banner');
+            document.getElementById('minha-vez-texto').innerText =
+                `Prepare-se, ${pedido.nome}! Você é o próximo a cantar — ${pedido.musica}`;
+            banner.classList.remove('hidden');
+
+            // 3) Notificação do navegador (se permitido)
+            if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                    new Notification('🎤 É a sua vez!', {
+                        body: `${pedido.nome}, prepare-se para cantar "${pedido.musica}"!`,
+                    });
+                } catch (e) { console.warn('Não foi possível exibir a notificação:', e); }
+            }
+        }
+
         const TEMPO_MEDIO_MUSICA = 5; // minutos
         const HORARIO_LIMITE = "23:00";
 
@@ -559,6 +706,12 @@
             const musica = document.getElementById('input-musica').value.trim();
             const artista = document.getElementById('input-artista').value.trim();
 
+            // Considera tanto quantas vezes a pessoa já cantou quanto pedidos dela ainda pendentes na fila,
+            // para que várias músicas da mesma pessoa não furem a prioridade de quem só pediu uma vez.
+            const key = nome.toLowerCase();
+            const pedidosPendentes = fila.filter(p => p.nome.toLowerCase() === key).length;
+            const prioridadeCalculada = (contagemCantores[key] || 0) + pedidosPendentes;
+
             const novoPedido = {
                 id: Date.now(),
                 nome: nome,
@@ -566,19 +719,55 @@
                 musica: musica,
                 artista: artista,
                 timestamp: new Date().getTime(),
-                vezesCantadas: contagemCantores[nome.toLowerCase()] || 0
+                vezesCantadas: prioridadeCalculada
             };
 
             fila.push(novoPedido);
             ordenarFila();
+
+            // Se o cliente ativou o aviso de "é a sua vez", associamos este pedido ao dispositivo dele
+            // (precisa acontecer ANTES de atualizarUI/verificarMinhaVez, para o aviso poder disparar
+            // já na primeira verificação, caso a fila esteja vazia e o pedido entre direto na posição 1)
+            if (notifAtiva()) {
+                registrarMeuPedido(novoPedido.id);
+            }
+
             salvarNoFirebase();
             atualizarUI();
 
-            // Feedback visual
-            document.getElementById('form-pedido').reset();
+            // Lembra o nome e a mesa neste navegador, para não precisar digitar de novo da próxima vez
+            localStorage.setItem('karaoke_cliente_nome', nome);
+            localStorage.setItem('karaoke_cliente_mesa', mesa || '');
+            document.getElementById('btn-nao-e-voce').classList.remove('hidden');
+
+            // Feedback visual — limpa só música/artista; nome e mesa continuam preenchidos
+            document.getElementById('input-musica').value = '';
+            document.getElementById('input-artista').value = '';
+            document.getElementById('input-musica').focus();
             const feedback = document.getElementById('feedback-sucesso');
             feedback.classList.remove('hidden');
             setTimeout(() => feedback.classList.add('hidden'), 3000);
+        }
+
+        // Preenche nome/mesa automaticamente se o navegador já tiver essa informação salva
+        function preencherDadosLembrados() {
+            const nomeSalvo = localStorage.getItem('karaoke_cliente_nome');
+            const mesaSalva = localStorage.getItem('karaoke_cliente_mesa');
+            if (nomeSalvo) {
+                document.getElementById('input-nome').value = nomeSalvo;
+                document.getElementById('btn-nao-e-voce').classList.remove('hidden');
+            }
+            if (mesaSalva) document.getElementById('input-mesa').value = mesaSalva;
+        }
+
+        // Limpa o nome/mesa lembrados neste navegador (ex: outra pessoa vai pedir no mesmo celular)
+        function esquecerDadosLembrados() {
+            localStorage.removeItem('karaoke_cliente_nome');
+            localStorage.removeItem('karaoke_cliente_mesa');
+            document.getElementById('input-nome').value = '';
+            document.getElementById('input-mesa').value = '';
+            document.getElementById('btn-nao-e-voce').classList.add('hidden');
+            document.getElementById('input-nome').focus();
         }
 
         function ordenarFila() {
@@ -718,6 +907,8 @@
         function atualizarUI() {
             const tempoEstimado = calcularTempoEstimado();
             const bloqueada = isFilaBloqueada();
+
+            verificarMinhaVez();
 
             // UI Cliente
             document.getElementById('cliente-tempo-espera').innerText = `${tempoEstimado} min`;
@@ -913,11 +1104,26 @@
             avaliarApresentacao(estrela.dataset.nota);
         });
 
+        document.getElementById('btn-nao-e-voce').addEventListener('click', esquecerDadosLembrados);
+
+        // Toggle "Avisar quando for minha vez"
+        const notifToggle = document.getElementById('notif-toggle');
+        notifToggle.checked = notifAtiva();
+        notifToggle.addEventListener('change', function() {
+            localStorage.setItem('karaoke_notif_ativo', this.checked ? '1' : '0');
+            if (this.checked) {
+                pedirPermissaoNotificacao();
+            } else {
+                document.getElementById('notif-status').classList.add('hidden');
+            }
+        });
+
         // Loop de actualización
         setInterval(atualizarUI, 60000);
         
         // Inicializar
         window.addEventListener('load', () => {
+            preencherDadosLembrados();
             initFirebase();
             atualizarUI();
         });
