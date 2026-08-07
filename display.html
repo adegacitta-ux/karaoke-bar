@@ -410,21 +410,21 @@
             
             <!-- Estado Inicial -->
             <div id="estado-inicial" class="hidden">
-                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" onerror="this.style.display='none'"/>
+                
                 <h1 class="titulo-proximo">Karaokê Do Città</h1>
                 <p style="font-size: 32px; color: #999;">Aguardando próxima música...</p>
             </div>
 
             <!-- Fila Vazia -->
             <div id="fila-vazia" class="hidden">
-                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" onerror="this.style.display='none'"/>
+                
                 <h1 class="titulo-proximo">Fila Encerrada</h1>
                 <p style="font-size: 32px; color: #999; margin-top: 20px;">Obrigado por participar!</p>
             </div>
 
             <!-- Apresentação em Andamento ou Próximo Cantor -->
             <div id="proximo-cantor" class="hidden">
-                <img src="assets/citta-logo.svg" class="display-logo" alt="Karaokê Do Città" onerror="this.style.display='none'"/>
+                
                 <h1 class="titulo-proximo" id="titulo-apresentacao">Próximo a Cantar</h1>
                 
                 <div class="cantor-nombre" id="cantor-nombre">-</div>
@@ -530,6 +530,11 @@
                     console.log('📡 Datos actualizados en tiempo real');
                     atualizarDisplayWithData(snapshot.val());
                 });
+
+                // Rede de segurança: além do tempo real, força uma checagem a cada 5s.
+                // Isso evita que o telão fique "atrasado" caso a conexão em tempo real
+                // engasgue por algum instante (wifi instável, muita gente votando, etc.)
+                setInterval(atualizarDisplay, 5000);
             } catch (error) {
                 console.error('❌ Error Firebase:', error);
                 firebaseConnected = false;
