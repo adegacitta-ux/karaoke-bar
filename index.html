@@ -74,7 +74,7 @@
     <!-- Header / Navegação Simples para o Protótipo -->
     <nav class="bg-white shadow-sm mb-4">
         <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
-            <h1 class="text-xl font-bold text-indigo-600"><img src="assets/citta-logo.svg" alt="Karaokê Do Città" class="site-logo" onerror="this.style.display='none'"/><span>Karaokê Do Città</span></h1>
+            <h1 class="text-xl font-bold text-indigo-600"><span>Karaokê Do Città</span></h1>
             <div class="flex space-x-2">
                 <button onclick="switchTab('cliente')" class="px-3 py-1 text-sm font-medium rounded-md hover:bg-gray-100">Cliente</button>
                 <button onclick="switchTab('proximos')" class="px-3 py-1 text-sm font-medium rounded-md hover:bg-gray-100">Próximos</button>
@@ -415,6 +415,11 @@
         let filaManualFechada = false;
         let apresentacaoAtual = null; // { id, nome, mesa, musica, artista, vezesCantadas, avaliacoes: {votanteId: nota} }
 
+        // Guardam a última versão renderizada da fila/histórico, para não reconstruir
+        // o HTML dessas listas sem necessidade (ex: a cada voto de avaliação)
+        let _ultimaFilaHash = null;
+        let _ultimoHistoricoHash = null;
+
         // Identificador anônimo do dispositivo, usado para permitir 1 voto por pessoa/dispositivo
         function getVotanteId() {
             let vid = localStorage.getItem('karaoke_votante_id');
@@ -430,6 +435,22 @@
             if (notas.length === 0) return { media: null, votos: 0 };
             const soma = notas.reduce((a, b) => a + b, 0);
             return { media: Number((soma / notas.length).toFixed(1)), votos: notas.length };
+        }
+
+        // Usamos o PRIMEIRO NOME + NÚMERO DA MESA (quando informado) como identificador da pessoa,
+        // para contar quantas vezes ela já cantou. Isso evita duplicidade quando a mesma pessoa
+        // digita o nome de forma diferente (ex: "Maria", "Maria Silva", "maria") e ainda ajuda a
+        // diferenciar duas pessoas diferentes com o mesmo primeiro nome em mesas distintas.
+        // Se a mesa não for informada, usamos só o primeiro nome (comportamento anterior).
+        function obterChaveNome(nomeCompleto, mesa) {
+            const primeiroNome = (nomeCompleto || '')
+                .trim()
+                .split(/\s+/)[0]                // pega só a primeira palavra
+                .toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // remove acentos (José -> jose)
+
+            const mesaNormalizada = (mesa || '').toString().trim().toLowerCase();
+            return mesaNormalizada ? `${primeiroNome}@mesa${mesaNormalizada}` : primeiroNome;
         }
 
         // --- NOTIFICAÇÃO "É A SUA VEZ" (via Notification API do navegador + som) ---
@@ -708,8 +729,9 @@
 
             // Considera tanto quantas vezes a pessoa já cantou quanto pedidos dela ainda pendentes na fila,
             // para que várias músicas da mesma pessoa não furem a prioridade de quem só pediu uma vez.
-            const key = nome.toLowerCase();
-            const pedidosPendentes = fila.filter(p => p.nome.toLowerCase() === key).length;
+            // Usa primeiro nome + mesa como identificador (evita duplicidade por erro de digitação/apelido).
+            const key = obterChaveNome(nome, mesa);
+            const pedidosPendentes = fila.filter(p => obterChaveNome(p.nome, p.mesa) === key).length;
             const prioridadeCalculada = (contagemCantores[key] || 0) + pedidosPendentes;
 
             const novoPedido = {
@@ -810,7 +832,7 @@
             if (!apresentacaoAtual) return;
 
             const pedido = apresentacaoAtual;
-            const key = pedido.nome.toLowerCase();
+            const key = obterChaveNome(pedido.nome, pedido.mesa);
             contagemCantores[key] = (contagemCantores[key] || 0) + 1;
 
             const { media, votos } = mediaEVotos(pedido.avaliacoes);
@@ -824,7 +846,7 @@
 
             // Atualiza o contador de quem ainda está na fila
             fila.forEach(p => {
-                if (p.nome.toLowerCase() === key) {
+                if (obterChaveNome(p.nome, p.mesa) === key) {
                     p.vezesCantadas = contagemCantores[key];
                 }
             });
@@ -844,7 +866,17 @@
             if (!apresentacaoAtual.avaliacoes) apresentacaoAtual.avaliacoes = {};
             apresentacaoAtual.avaliacoes[getVotanteId()] = nota;
 
-            salvarNoFirebase();
+            // Grava só o voto específico (não o objeto "karaoke" inteiro de novo).
+            // Isso evita que cada voto reenvie fila + histórico completos pra todo mundo,
+            // o que estava deixando a tela do DJ "travando/recarregando" a cada voto.
+            if (useFirebase && db && apresentacaoAtual.id) {
+                db.ref(`karaoke/apresentacaoAtual/avaliacoes/${getVotanteId()}`).set(nota, (error) => {
+                    if (error) console.error('❌ Erro ao salvar voto:', error);
+                });
+            } else {
+                salvarNoLocalStorage();
+            }
+
             atualizarUI();
         }
 
@@ -951,93 +983,105 @@
                 cardAp.classList.add('hidden');
             }
 
-            // Tabela da Fila
-            const tabela = document.getElementById('tabela-fila');
-            const filaVazia = document.getElementById('fila-vazia');
-            tabela.innerHTML = '';
-            
-            if (fila.length === 0) {
-                filaVazia.classList.remove('hidden');
-            } else {
-                filaVazia.classList.add('hidden');
-                fila.forEach((pedido, index) => {
-                    const tr = document.createElement('tr');
-                    tr.className = "hover:bg-gray-50 transition-colors";
-                    tr.innerHTML = `
-                        <td class="px-6 py-4 font-bold text-gray-400">${index + 1}</td>
-                        <td class="px-6 py-4 font-semibold text-gray-800">
-                            ${pedido.nome}
-                            ${pedido.mesa ? `<div class="text-xs text-gray-400 mt-1">Mesa: ${pedido.mesa}</div>` : ''}
-                        </td>
-                        <td class="px-6 py-4 text-gray-600">${pedido.musica} <br> <span class="text-xs text-gray-400">${pedido.artista}</span></td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 bg-gray-100 rounded text-xs font-bold">${pedido.vezesCantadas}x</span>
-                        </td>
-                        <td class="px-6 py-4 text-right space-x-2">
-                            <button onclick="acaoProximo(${pedido.id})" class="text-green-600 hover:bg-green-50 p-2 rounded-full" title="Chamar Próximo">
-                                <i class="fas fa-play"></i>
-                            </button>
-                            <button onclick="acaoPular(${pedido.id})" class="text-orange-500 hover:bg-orange-50 p-2 rounded-full" title="Pular Vez">
-                                <i class="fas fa-forward"></i>
-                            </button>
-                            <button onclick="acaoRemover(${pedido.id})" class="text-red-600 hover:bg-red-50 p-2 rounded-full" title="Remover">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    `;
-                    tabela.appendChild(tr);
-                });
-            }
+            // Tabela da Fila — só reconstrói o HTML se a fila realmente mudou.
+            // Isso evita "piscar"/travar a tela do DJ toda vez que alguém vota
+            // (um voto muda só a avaliação da apresentação atual, não a fila).
+            const filaHashAtual = JSON.stringify(fila);
+            if (filaHashAtual !== _ultimaFilaHash) {
+                _ultimaFilaHash = filaHashAtual;
 
-            // Lista de Histórico
-            const listaHist = document.getElementById('lista-historico');
-            listaHist.innerHTML = '';
-            if (historico.length === 0) {
-                listaHist.innerHTML = '<li class="p-4 text-center text-gray-400 italic">Nenhuma música cantada ainda.</li>';
-            } else {
-                historico.forEach(item => {
-                    const li = document.createElement('li');
-                    li.className = "p-4 flex justify-between items-center";
-                    const avaliacaoHtml = (typeof item.mediaAvaliacao === 'number')
-                        ? `<div class="text-xs mt-1"><span class="mini-stars">${renderMiniEstrelas(item.mediaAvaliacao)}</span> <span class="text-gray-400">${item.mediaAvaliacao.toFixed(1)} (${item.totalVotos} ${item.totalVotos === 1 ? 'voto' : 'votos'})</span></div>`
-                        : `<div class="text-xs mt-1 text-gray-400 italic">Sem avaliações</div>`;
-                    li.innerHTML = `
-                        <div>
-                            <span class="font-bold text-gray-700">${item.nome}</span>
-                            ${item.mesa ? `<span class="text-gray-500 mx-2">| Mesa: ${item.mesa}</span>` : ''}
-                            <span class="text-gray-500 mx-2">cantou</span>
-                            <span class="text-indigo-600 font-medium">${item.musica}</span>
-                            ${avaliacaoHtml}
-                        </div>
-                        <span class="text-xs text-gray-400">${item.horario}</span>
-                    `;
-                    listaHist.appendChild(li);
-                });
-            }
-
-            // --- Atualizar aba "Próximos" para clientes ---
-            const proximosList = document.getElementById('proximos-list');
-            const proximosVazio = document.getElementById('proximos-vazio');
-            if (proximosList) {
-                proximosList.innerHTML = '';
+                const tabela = document.getElementById('tabela-fila');
+                const filaVazia = document.getElementById('fila-vazia');
+                tabela.innerHTML = '';
+                
                 if (fila.length === 0) {
-                    proximosVazio.classList.remove('hidden');
+                    filaVazia.classList.remove('hidden');
                 } else {
-                    proximosVazio.classList.add('hidden');
-                    const limit = Math.min(10, fila.length);
-                    for (let i = 0; i < limit; i++) {
-                        const p = fila[i];
+                    filaVazia.classList.add('hidden');
+                    fila.forEach((pedido, index) => {
+                        const tr = document.createElement('tr');
+                        tr.className = "hover:bg-gray-50 transition-colors";
+                        tr.innerHTML = `
+                            <td class="px-6 py-4 font-bold text-gray-400">${index + 1}</td>
+                            <td class="px-6 py-4 font-semibold text-gray-800">
+                                ${pedido.nome}
+                                ${pedido.mesa ? `<div class="text-xs text-gray-400 mt-1">Mesa: ${pedido.mesa}</div>` : ''}
+                            </td>
+                            <td class="px-6 py-4 text-gray-600">${pedido.musica} <br> <span class="text-xs text-gray-400">${pedido.artista}</span></td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-1 bg-gray-100 rounded text-xs font-bold">${pedido.vezesCantadas}x</span>
+                            </td>
+                            <td class="px-6 py-4 text-right space-x-2">
+                                <button onclick="acaoProximo(${pedido.id})" class="text-green-600 hover:bg-green-50 p-2 rounded-full" title="Chamar Próximo">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button onclick="acaoPular(${pedido.id})" class="text-orange-500 hover:bg-orange-50 p-2 rounded-full" title="Pular Vez">
+                                    <i class="fas fa-forward"></i>
+                                </button>
+                                <button onclick="acaoRemover(${pedido.id})" class="text-red-600 hover:bg-red-50 p-2 rounded-full" title="Remover">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        `;
+                        tabela.appendChild(tr);
+                    });
+                }
+
+                // --- Atualizar aba "Próximos" para clientes (também só muda quando a fila muda) ---
+                const proximosList = document.getElementById('proximos-list');
+                const proximosVazio = document.getElementById('proximos-vazio');
+                if (proximosList) {
+                    proximosList.innerHTML = '';
+                    if (fila.length === 0) {
+                        proximosVazio.classList.remove('hidden');
+                    } else {
+                        proximosVazio.classList.add('hidden');
+                        const limit = Math.min(10, fila.length);
+                        for (let i = 0; i < limit; i++) {
+                            const p = fila[i];
+                            const li = document.createElement('li');
+                            li.className = 'p-4 flex justify-between items-center';
+                            li.innerHTML = `
+                                <div>
+                                    <div class="font-bold text-gray-800">${i + 1}. ${p.nome}</div>
+                                    <div class="text-sm text-gray-500">${p.musica} — ${p.artista}${p.mesa ? ` <span class="mx-2">| Mesa: ${p.mesa}</span>` : ''}</div>
+                                </div>
+                                <div class="text-xs text-gray-400 font-bold">${p.vezesCantadas}x</div>
+                            `;
+                            proximosList.appendChild(li);
+                        }
+                    }
+                }
+            }
+
+            // Lista de Histórico — mesma lógica: só reconstrói quando o histórico muda de verdade.
+            const historicoHashAtual = JSON.stringify(historico);
+            if (historicoHashAtual !== _ultimoHistoricoHash) {
+                _ultimoHistoricoHash = historicoHashAtual;
+
+                const listaHist = document.getElementById('lista-historico');
+                listaHist.innerHTML = '';
+                if (historico.length === 0) {
+                    listaHist.innerHTML = '<li class="p-4 text-center text-gray-400 italic">Nenhuma música cantada ainda.</li>';
+                } else {
+                    historico.forEach(item => {
                         const li = document.createElement('li');
-                        li.className = 'p-4 flex justify-between items-center';
+                        li.className = "p-4 flex justify-between items-center";
+                        const avaliacaoHtml = (typeof item.mediaAvaliacao === 'number')
+                            ? `<div class="text-xs mt-1"><span class="mini-stars">${renderMiniEstrelas(item.mediaAvaliacao)}</span> <span class="text-gray-400">${item.mediaAvaliacao.toFixed(1)} (${item.totalVotos} ${item.totalVotos === 1 ? 'voto' : 'votos'})</span></div>`
+                            : `<div class="text-xs mt-1 text-gray-400 italic">Sem avaliações</div>`;
                         li.innerHTML = `
                             <div>
-                                <div class="font-bold text-gray-800">${i + 1}. ${p.nome}</div>
-                                <div class="text-sm text-gray-500">${p.musica} — ${p.artista}${p.mesa ? ` <span class="mx-2">| Mesa: ${p.mesa}</span>` : ''}</div>
+                                <span class="font-bold text-gray-700">${item.nome}</span>
+                                ${item.mesa ? `<span class="text-gray-500 mx-2">| Mesa: ${item.mesa}</span>` : ''}
+                                <span class="text-gray-500 mx-2">cantou</span>
+                                <span class="text-indigo-600 font-medium">${item.musica}</span>
+                                ${avaliacaoHtml}
                             </div>
-                            <div class="text-xs text-gray-400 font-bold">${p.vezesCantadas}x</div>
+                            <span class="text-xs text-gray-400">${item.horario}</span>
                         `;
-                        proximosList.appendChild(li);
-                    }
+                        listaHist.appendChild(li);
+                    });
                 }
             }
 
@@ -1118,8 +1162,9 @@
             }
         });
 
-        // Loop de actualización
-        setInterval(atualizarUI, 60000);
+        // Loop de atualização (fallback — a sincronização real acontece via listener em tempo
+        // real do Firebase; isso aqui é só uma rede de segurança, a cada 10s)
+        setInterval(atualizarUI, 10000);
         
         // Inicializar
         window.addEventListener('load', () => {
