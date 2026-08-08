@@ -132,6 +132,10 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Nome da Música</label>
                                 <input type="text" id="input-musica" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                <button type="button" id="btn-abrir-youtube" onclick="abrirModalYoutube()" class="mt-2 flex items-center gap-2 text-sm font-semibold text-red-600 border border-red-200 rounded-lg px-3 py-2 hover:bg-red-50 transition-colors">
+                                    <i class="fab fa-youtube text-lg"></i> YouTube
+                                </button>
+                                <p class="text-xs text-gray-400 mt-1"><i class="fas fa-lightbulb mr-1"></i>Busque o karaokê da música no YouTube</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Artista</label>
@@ -284,6 +288,9 @@
                                     <span class="mini-stars" id="admin-ap-estrelas"></span>
                                     <span class="text-gray-500 ml-1" id="admin-ap-media-texto">Sem avaliações ainda</span>
                                 </div>
+                                <a id="admin-ap-youtube-link" href="#" target="_blank" rel="noopener" class="hidden mt-2 inline-flex items-center gap-2 text-sm font-semibold text-red-600 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
+                                    <i class="fab fa-youtube"></i> Abrir Karaokê no YouTube
+                                </a>
                             </div>
                             <button onclick="acaoFinalizarApresentacao()" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg whitespace-nowrap">
                                 <i class="fas fa-flag-checkered mr-2"></i>Finalizar Apresentação
@@ -357,7 +364,44 @@
         </div>
     </div>
 
+    <!-- MODAL: BUSCAR KARAOKÊ NO YOUTUBE -->
+    <div id="youtube-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 px-0 sm:px-4">
+        <div class="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-xl p-6 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fab fa-youtube text-red-600"></i> Buscar Karaokê no YouTube
+                </h3>
+                <button type="button" onclick="fecharModalYoutube()" class="text-gray-400 hover:text-gray-600 text-xl">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="flex gap-2 mb-3">
+                <input type="text" id="youtube-busca-input" placeholder="Digite o nome da música... (ex: Evidências)" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                <button type="button" onclick="buscarNoYoutube()" class="bg-red-100 text-red-600 px-4 rounded-lg hover:bg-red-200 transition-colors">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-100 text-blue-700 text-xs rounded-lg p-3 mb-4">
+                <i class="fas fa-lightbulb mr-1"></i>
+                <strong>Dica:</strong> Escreva apenas o nome da música. A busca automática procura por karaokês e playbacks no YouTube.
+            </div>
+
+            <div id="youtube-resultados" class="overflow-y-auto flex-1 space-y-2 -mx-2 px-2">
+                <!-- Resultados inseridos via JS -->
+            </div>
+
+            <button type="button" onclick="fecharModalYoutube()" class="mt-4 w-full py-3 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
+                Cancelar
+            </button>
+        </div>
+    </div>
+
     <script>
+        // --- CONFIGURAÇÃO YOUTUBE (busca de karaokê) ---
+        const YOUTUBE_API_KEY = "AIzaSyDLAwdk2PZ3NsKJFHOrXsE8odiJDnJFvlY";
+
         // --- CONFIGURAÇÃO FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyBianYFsS5_8z6HDlBnucOi53qdz2qzj2A",
@@ -712,6 +756,129 @@
             atualizarUI();
         }
 
+        // --- BUSCA DE KARAOKÊ NO YOUTUBE ---
+        // Guarda o vídeo escolhido pelo cliente até ele enviar o pedido
+        let youtubeUrlSelecionada = null;
+
+        function abrirModalYoutube() {
+            const modal = document.getElementById('youtube-modal');
+            const buscaInput = document.getElementById('youtube-busca-input');
+            const musicaAtual = document.getElementById('input-musica').value.trim();
+
+            modal.classList.remove('hidden');
+            buscaInput.value = musicaAtual;
+            document.getElementById('youtube-resultados').innerHTML = '';
+            buscaInput.focus();
+
+            // Se já tem um nome de música digitado, busca automaticamente
+            if (musicaAtual) {
+                buscarNoYoutube();
+            }
+        }
+
+        function fecharModalYoutube() {
+            document.getElementById('youtube-modal').classList.add('hidden');
+        }
+
+        // Enter no campo de busca também dispara a pesquisa
+        document.getElementById('youtube-busca-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                buscarNoYoutube();
+            }
+        });
+
+        async function buscarNoYoutube() {
+            const query = document.getElementById('youtube-busca-input').value.trim();
+            const resultadosDiv = document.getElementById('youtube-resultados');
+
+            if (!query) return;
+
+            resultadosDiv.innerHTML = `
+                <div class="text-center text-gray-400 py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                    <div class="text-sm">Buscando...</div>
+                </div>
+            `;
+
+            try {
+                const termoBusca = encodeURIComponent(`karaokê ${query}`);
+                const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${termoBusca}&key=${YOUTUBE_API_KEY}`;
+                const resp = await fetch(url);
+                const dados = await resp.json();
+
+                if (dados.error) {
+                    console.error('Erro YouTube API:', dados.error);
+                    resultadosDiv.innerHTML = `
+                        <div class="text-center text-red-500 py-8 text-sm">
+                            <i class="fas fa-exclamation-triangle text-xl mb-2 block"></i>
+                            Não foi possível buscar agora. Tente digitar o nome da música direto no campo.
+                        </div>
+                    `;
+                    return;
+                }
+
+                const itens = dados.items || [];
+                if (itens.length === 0) {
+                    resultadosDiv.innerHTML = `
+                        <div class="text-center text-gray-400 py-8 text-sm">
+                            Nenhum resultado encontrado. Tente outro nome.
+                        </div>
+                    `;
+                    return;
+                }
+
+                resultadosDiv.innerHTML = '';
+                itens.forEach(item => {
+                    const videoId = item.id.videoId;
+                    const titulo = item.snippet.title;
+                    const canal = item.snippet.channelTitle;
+                    const thumb = item.snippet.thumbnails?.default?.url || '';
+
+                    const card = document.createElement('button');
+                    card.type = 'button';
+                    card.className = 'w-full flex items-center gap-3 p-2 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-indigo-200 transition-colors text-left';
+                    card.innerHTML = `
+                        <img src="${thumb}" class="w-20 h-14 object-cover rounded flex-shrink-0" alt="" />
+                        <div class="min-w-0">
+                            <div class="text-sm font-semibold text-gray-800 line-clamp-2">${tituloEscapado(titulo)}</div>
+                            <div class="text-xs text-gray-400 mt-1">${tituloEscapado(canal)}</div>
+                        </div>
+                    `;
+                    card.onclick = () => selecionarVideoYoutube(videoId, titulo);
+                    resultadosDiv.appendChild(card);
+                });
+            } catch (err) {
+                console.error('Erro ao buscar no YouTube:', err);
+                resultadosDiv.innerHTML = `
+                    <div class="text-center text-red-500 py-8 text-sm">
+                        <i class="fas fa-exclamation-triangle text-xl mb-2 block"></i>
+                        Erro de conexão. Tente digitar o nome da música direto no campo.
+                    </div>
+                `;
+            }
+        }
+
+        // Evita que o título do vídeo quebre o HTML se tiver caracteres especiais
+        function tituloEscapado(texto) {
+            const div = document.createElement('div');
+            div.textContent = texto || '';
+            return div.innerHTML;
+        }
+
+        function selecionarVideoYoutube(videoId, titulo) {
+            youtubeUrlSelecionada = `https://www.youtube.com/watch?v=${videoId}`;
+            document.getElementById('input-musica').value = titulo;
+            fecharModalYoutube();
+        }
+
+        // Se a pessoa mudar o nome da música manualmente depois de ter escolhido um vídeo,
+        // desfazemos a associação (senão o pedido levaria o link errado).
+        // Obs: setar .value por JS (como acima) não dispara este evento — só digitação real do usuário.
+        document.getElementById('input-musica').addEventListener('input', () => {
+            youtubeUrlSelecionada = null;
+        });
+
         // --- LÓGICA PRINCIPAL ---
 
         function adicionarPedido(e) {
@@ -741,7 +908,8 @@
                 musica: musica,
                 artista: artista,
                 timestamp: new Date().getTime(),
-                vezesCantadas: prioridadeCalculada
+                vezesCantadas: prioridadeCalculada,
+                youtubeUrl: youtubeUrlSelecionada || null
             };
 
             fila.push(novoPedido);
@@ -766,6 +934,7 @@
             document.getElementById('input-musica').value = '';
             document.getElementById('input-artista').value = '';
             document.getElementById('input-musica').focus();
+            youtubeUrlSelecionada = null;
             const feedback = document.getElementById('feedback-sucesso');
             feedback.classList.remove('hidden');
             setTimeout(() => feedback.classList.add('hidden'), 3000);
@@ -979,6 +1148,14 @@
                 document.getElementById('admin-ap-media-texto').innerText = media !== null
                     ? `${media.toFixed(1)} (${votos} ${votos === 1 ? 'voto' : 'votos'})`
                     : 'Sem avaliações ainda';
+
+                const linkYt = document.getElementById('admin-ap-youtube-link');
+                if (apresentacaoAtual.youtubeUrl) {
+                    linkYt.href = apresentacaoAtual.youtubeUrl;
+                    linkYt.classList.remove('hidden');
+                } else {
+                    linkYt.classList.add('hidden');
+                }
             } else {
                 cardAp.classList.add('hidden');
             }
@@ -1007,7 +1184,7 @@
                                 ${pedido.nome}
                                 ${pedido.mesa ? `<div class="text-xs text-gray-400 mt-1">Mesa: ${pedido.mesa}</div>` : ''}
                             </td>
-                            <td class="px-6 py-4 text-gray-600">${pedido.musica} <br> <span class="text-xs text-gray-400">${pedido.artista}</span></td>
+                            <td class="px-6 py-4 text-gray-600">${pedido.musica} <br> <span class="text-xs text-gray-400">${pedido.artista}</span> ${pedido.youtubeUrl ? `<a href="${pedido.youtubeUrl}" target="_blank" rel="noopener" title="Abrir no YouTube" class="ml-1 text-red-500 hover:text-red-700"><i class="fab fa-youtube"></i></a>` : ''}</td>
                             <td class="px-6 py-4">
                                 <span class="px-2 py-1 bg-gray-100 rounded text-xs font-bold">${pedido.vezesCantadas}x</span>
                             </td>
