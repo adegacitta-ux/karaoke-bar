@@ -14,6 +14,46 @@ credenciais de sandbox provisionadas aqui. Use como checklist ao rodar você mes
 - `../fila-v2-sandbox/index.html` aberto no navegador, com `firebaseConfig` e
   `PIX_WORKER_URL` preenchidos
 
+## Modo de teste com cartão (webhook ponta a ponta, sem PIX real)
+
+O sandbox do Mercado Pago não deixa completar um PIX de verdade — só gera o QR code,
+não existe "pagador de teste" pra PIX. Pra validar o fluxo completo (webhook →
+assinatura → idempotência → reordenação da fila via transaction) sem depender disso,
+o Worker tem um modo de teste com cartão, **desligado por padrão** (`wrangler.toml`
+comentado — o caminho normal é sempre PIX).
+
+**Ativar só para um deploy** (não mexe no `wrangler.toml` commitado):
+```bash
+npx wrangler deploy --var TEST_PAYMENT_METHOD:card
+```
+**Desativar de novo** (volta ao PIX normal):
+```bash
+npx wrangler deploy
+```
+
+Com o modo ativo, `POST /criar-cobranca` aceita um campo opcional `cardholderTeste`
+que controla o resultado simulado (default `"APRO"` = aprovado automaticamente, sem
+ação manual — dispara o webhook de aprovação de verdade):
+
+| `cardholderTeste` | Resultado simulado |
+|---|---|
+| `APRO` (padrão) | Aprovado |
+| `OTHE` | Recusado (genérico) |
+| `CONT` | Pendente |
+| `CALL` | Recusado (autorização) |
+| `FUND` | Recusado (saldo insuficiente) |
+| `SECU` | Recusado (CVV inválido) |
+
+```bash
+curl -X POST https://<worker-url>/criar-cobranca \
+  -H "Content-Type: application/json" \
+  -d '{"barId":"teste-pix-sandbox","pedidoId":1,"cardholderTeste":"APRO"}'
+```
+
+A resposta não tem `qrCode`/`qrCodeBase64` (não é PIX) — só `paymentId` e `status`.
+Com `APRO`, o pagamento costuma vir `approved` já na criação; o webhook chega
+separado, e o resto do fluxo (testes 2-6 abaixo) funciona igual.
+
 ## 1. Criar cobrança
 ```bash
 curl -X POST https://<worker-url>/criar-cobranca \

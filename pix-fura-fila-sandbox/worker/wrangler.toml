@@ -10,6 +10,16 @@ compatibility_date = "2024-11-01"
 FIREBASE_DATABASE_URL = "https://karaokebar-7a67f-default-rtdb.firebaseio.com"
 PRECO_FURAR_FILA_CENTAVOS = "1000"
 
+# NUNCA descomentar isto num deploy que deva servir PIX de verdade. Liga o modo de
+# teste com cartão (ver src/mercadopago.js -> criarCobrancaCartaoTeste) porque o
+# sandbox do Mercado Pago não permite completar um PIX de verdade, só emitir o QR
+# code — sem isso não dá pra testar o webhook de aprovação ponta a ponta. Prefira
+# ativar só para UM deploy específico, sem tocar neste arquivo:
+#   npx wrangler deploy --var TEST_PAYMENT_METHOD:card
+# e depois voltar ao normal com um `npx wrangler deploy` simples (sem --var). Ver
+# docs/TESTES.md.
+# TEST_PAYMENT_METHOD = "card"
+
 # Segredos (NUNCA colocar aqui — usar `wrangler secret put <NOME>`):
 #   MP_ACCESS_TOKEN            -> Access Token de teste do Mercado Pago (TEST-...)
 #   MP_WEBHOOK_SECRET          -> segredo de assinatura configurado no app do MP (Webhooks)

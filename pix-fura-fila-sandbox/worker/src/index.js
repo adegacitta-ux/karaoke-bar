@@ -1,4 +1,4 @@
-import { criarCobrancaPix, consultarPagamento } from "./mercadopago.js";
+import { criarCobrancaPix, criarCobrancaCartaoTeste, consultarPagamento } from "./mercadopago.js";
 import { validarAssinaturaWebhook } from "./validarAssinatura.js";
 import { barExiste, pagamentoJaProcessado, pedidoExisteNaFila, furarFila } from "./firebase.js";
 import { permitido } from "./rateLimit.js";
@@ -46,25 +46,45 @@ async function handleCriarCobranca(request, env) {
     return json({ erro: "Pedido não encontrado na fila" }, 404);
   }
 
+  // TEST_PAYMENT_METHOD=card: SOMENTE quando explicitamente configurado no Worker (ver
+  // wrangler.toml) — nunca no caminho normal, que é sempre PIX. Existe porque o
+  // sandbox do Mercado Pago não permite completar um pagamento PIX de verdade (só gera
+  // o QR code), então não há como testar o webhook de aprovação de ponta a ponta sem
+  // isso. Ver docs/TESTES.md.
+  const modoTeste = env.TEST_PAYMENT_METHOD === "card";
+  const NOMES_TESTE_VALIDOS = ["APRO", "OTHE", "CONT", "CALL", "FUND", "SECU", "EXPI", "FORM"];
+  const cardholderTeste =
+    modoTeste && NOMES_TESTE_VALIDOS.includes(body.cardholderTeste) ? body.cardholderTeste : "APRO";
+
   try {
-    const cobranca = await criarCobrancaPix({
-      accessToken: env.MP_ACCESS_TOKEN,
-      valorCentavos,
-      descricao: `Fura-fila karaokê — pedido ${pedidoId}`,
-      payerEmail: body.payerEmail ?? "comprador-teste@cantoke.dev",
-      barId,
-      pedidoId,
-    });
+    const cobranca = modoTeste
+      ? await criarCobrancaCartaoTeste({
+          accessToken: env.MP_ACCESS_TOKEN,
+          valorCentavos,
+          descricao: `[TESTE] Fura-fila karaokê — pedido ${pedidoId}`,
+          barId,
+          pedidoId,
+          cardholderName: cardholderTeste,
+        })
+      : await criarCobrancaPix({
+          accessToken: env.MP_ACCESS_TOKEN,
+          valorCentavos,
+          descricao: `Fura-fila karaokê — pedido ${pedidoId}`,
+          payerEmail: body.payerEmail ?? "comprador-teste@cantoke.dev",
+          barId,
+          pedidoId,
+        });
 
     return json({
       paymentId: cobranca.paymentId,
       status: cobranca.status,
       qrCode: cobranca.qrCode,
       qrCodeBase64: cobranca.qrCodeBase64,
+      ...(modoTeste ? { modoTeste: "cartao", cardholderTeste } : {}),
     });
   } catch (erro) {
-    console.error("Erro ao criar cobrança PIX", erro, erro.detalhes);
-    return json({ erro: "Falha ao criar cobrança PIX" }, 502);
+    console.error("Erro ao criar cobrança", erro, erro.detalhes);
+    return json({ erro: "Falha ao criar cobrança" }, 502);
   }
 }
 
