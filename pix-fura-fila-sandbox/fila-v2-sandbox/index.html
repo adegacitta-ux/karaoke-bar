@@ -696,8 +696,9 @@
         // checklist de segurança da Fase 2 em ../README.md).
         const BAR_ID = 'teste-pix-sandbox';
 
-        // URL do Worker do PIX fura-fila (Fase 1) já publicado — ver ../worker/README.
-        const PIX_WORKER_URL = 'https://cantoke-pix-sandbox.SEU-SUBDOMINIO.workers.dev';
+        // URL do Worker do PIX fura-fila (Fase 1), já deployado com os secrets
+        // configurados (MP_ACCESS_TOKEN, MP_WEBHOOK_SECRET, FIREBASE_SERVICE_ACCOUNT_JSON).
+        const PIX_WORKER_URL = 'https://cantoke-pix-sandbox.cantoke-sandbox-2026.workers.dev';
 
         // Todo o caminho no banco desse bar começa aqui — é só usar `caminhoBar(...)`
         // em vez de escrever 'karaoke/...' direto, em qualquer lugar do código.
