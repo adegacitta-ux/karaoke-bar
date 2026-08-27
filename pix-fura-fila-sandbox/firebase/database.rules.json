@@ -1,0 +1,24 @@
+{
+  "rules": {
+    "bares": {
+      "$barId": {
+        "karaoke": {
+          ".read": true,
+
+          ".write": "auth != null && auth.token.email === 'admin@cantoke.dev'",
+
+          "fila": {
+            "$nomeId": {
+              ".validate": "newData.hasChildren(['nome'])"
+            }
+          }
+        }
+      }
+    },
+
+    "pagamentosProcessados": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

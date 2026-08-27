@@ -1,0 +1,21 @@
+name = "cantoke-pix-sandbox"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Variáveis não sensíveis. Ajuste FIREBASE_DATABASE_URL para o projeto Spark criado no Passo 1
+# (formato: https://<project-id>-default-rtdb.<region>.firebasedatabase.app).
+[vars]
+FIREBASE_DATABASE_URL = "https://cantoke-pix-sandbox-default-rtdb.firebaseio.com"
+PRECO_FURAR_FILA_CENTAVOS = "1000"
+
+# Segredos (NUNCA colocar aqui — usar `wrangler secret put <NOME>`):
+#   MP_ACCESS_TOKEN            -> Access Token de teste do Mercado Pago (TEST-...)
+#   MP_WEBHOOK_SECRET          -> segredo de assinatura configurado no app do MP (Webhooks)
+#   FIREBASE_SERVICE_ACCOUNT_JSON -> conteúdo minificado do JSON da service account (Passo 1)
+
+# Opcional: namespace KV para rate limiting em código (ver src/rateLimit.js).
+# Crie com `wrangler kv namespace create RATE_LIMIT` e cole o id abaixo, ou remova
+# este bloco — o Worker funciona sem ele (a checagem em código é apenas pulada).
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT"
+# id = "COLE_AQUI_O_ID_RETORNADO_PELO_COMANDO_ACIMA"

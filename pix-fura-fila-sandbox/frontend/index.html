@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cantokê — Fura-fila PIX (sandbox)</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.25rem; }
+  .config { font-size: 0.8rem; color: #666; margin-bottom: 1rem; }
+  ul { list-style: none; padding: 0; }
+  li { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid #eee; }
+  li.furador { background: #fff7e6; }
+  .badge { font-size: 0.7rem; background: #f5a623; color: #fff; border-radius: 4px; padding: 2px 6px; margin-left: 6px; }
+  button { cursor: pointer; border: none; border-radius: 6px; padding: 6px 12px; background: #6c5ce7; color: #fff; }
+  button:disabled { background: #ccc; cursor: default; }
+  #cobranca { margin-top: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; display: none; }
+  #cobranca img { width: 220px; height: 220px; display: block; margin: 0.5rem auto; }
+  #copiaECola { width: 100%; font-size: 0.75rem; word-break: break-all; }
+  #status { font-size: 0.85rem; color: #666; }
+</style>
+</head>
+<body>
+  <h1>🎤 Cantokê — teste de fura-fila PIX</h1>
+  <p class="config">
+    Preencha <code>CONFIG.firebaseConfig</code>, <code>CONFIG.workerUrl</code> e <code>CONFIG.barId</code>
+    no início do script antes de usar esta página. Isto é uma página de teste manual (Passo 7),
+    não a interface de produção do Cantokê.
+  </p>
+
+  <div id="status">Carregando fila…</div>
+  <ul id="fila"></ul>
+
+  <div id="cobranca">
+    <p><strong>Escaneie o QR code ou copie o código PIX:</strong></p>
+    <img id="qrImg" alt="QR code PIX" />
+    <textarea id="copiaECola" rows="4" readonly></textarea>
+    <button id="btnCopiar" type="button">Copiar código</button>
+    <p id="statusCobranca"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+    // ---- CONFIGURAÇÃO (preencher antes de usar) ----------------------------------
+    const CONFIG = {
+      // Config pública do app Firebase (Configurações do projeto → Seus apps → SDK setup).
+      // Não é secreta — é seguro embutir no front-end; a proteção real está nas Database Rules.
+      firebaseConfig: {
+        apiKey: "COLE_AQUI",
+        authDomain: "cantoke-pix-sandbox.firebaseapp.com",
+        databaseURL: "https://cantoke-pix-sandbox-default-rtdb.firebaseio.com",
+        projectId: "cantoke-pix-sandbox",
+      },
+      workerUrl: "https://cantoke-pix-sandbox.SEU-SUBDOMINIO.workers.dev",
+      barId: "bar-teste",
+    };
+    // --------------------------------------------------------------------------------
+
+    const app = initializeApp(CONFIG.firebaseConfig);
+    const db = getDatabase(app);
+    const filaEl = document.getElementById("fila");
+    const statusEl = document.getElementById("status");
+
+    // Fura-filas sempre na frente; entre eles, quem confirmou pagamento primeiro
+    // (furouFilaOrdem menor) vai à frente do outro furador. Fila normal mantém a
+    // ordem recebida do backend/produção (não reimplementamos o fairness aqui).
+    function comparar(a, b) {
+      if (a.furouFila && b.furouFila) return (a.furouFilaOrdem ?? 0) - (b.furouFilaOrdem ?? 0);
+      if (a.furouFila) return -1;
+      if (b.furouFila) return 1;
+      return 0;
+    }
+
+    onValue(ref(db, `/bares/${CONFIG.barId}/karaoke/fila`), (snapshot) => {
+      const dados = snapshot.val() ?? {};
+      const nomes = Object.entries(dados)
+        .map(([nomeId, valor]) => ({ nomeId, ...valor }))
+        .sort(comparar);
+
+      statusEl.textContent = nomes.length ? "" : "Fila vazia.";
+      filaEl.innerHTML = "";
+
+      for (const item of nomes) {
+        const li = document.createElement("li");
+        li.className = item.furouFila ? "furador" : "";
+
+        const label = document.createElement("span");
+        label.textContent = item.nome ?? item.nomeId;
+        if (item.furouFila) {
+          const badge = document.createElement("span");
+          badge.className = "badge";
+          badge.textContent = "FUROU A FILA";
+          label.appendChild(badge);
+        }
+
+        const btn = document.createElement("button");
+        btn.textContent = "Furar fila";
+        btn.disabled = !!item.furouFila;
+        btn.onclick = () => furarFila(item.nomeId);
+
+        li.append(label, btn);
+        filaEl.appendChild(li);
+      }
+    });
+
+    async function furarFila(nomeId) {
+      const cobrancaEl = document.getElementById("cobranca");
+      const statusCobrancaEl = document.getElementById("statusCobranca");
+      cobrancaEl.style.display = "block";
+      statusCobrancaEl.textContent = "Gerando cobrança PIX…";
+
+      try {
+        const resp = await fetch(`${CONFIG.workerUrl}/criar-cobranca`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ barId: CONFIG.barId, nomeId }),
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          statusCobrancaEl.textContent = `Erro: ${data.erro ?? resp.status}`;
+          return;
+        }
+
+        document.getElementById("qrImg").src = `data:image/png;base64,${data.qrCodeBase64}`;
+        document.getElementById("copiaECola").value = data.qrCode ?? "";
+        statusCobrancaEl.textContent =
+          "Aguardando pagamento… a fila atualiza automaticamente quando o webhook confirmar.";
+      } catch (erro) {
+        statusCobrancaEl.textContent = `Falha ao chamar o Worker: ${erro.message}`;
+      }
+    }
+
+    document.getElementById("btnCopiar").onclick = () => {
+      const campo = document.getElementById("copiaECola");
+      campo.select();
+      navigator.clipboard.writeText(campo.value);
+    };
+  </script>
+</body>
+</html>
