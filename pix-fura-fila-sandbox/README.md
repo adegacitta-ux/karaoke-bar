@@ -90,9 +90,13 @@ npx wrangler secret put MP_ACCESS_TOKEN
 npx wrangler secret put MP_WEBHOOK_SECRET
 npx wrangler secret put FIREBASE_SERVICE_ACCOUNT_JSON   # cole o JSON inteiro em uma linha
 ```
-O `FIREBASE_DATABASE_URL` já em `wrangler.toml`
-(`https://karaokebar-7a67f-default-rtdb.firebaseio.com`) foi confirmado batendo com a
-URL real vista no console — não precisa ajustar. Ajuste `PRECO_FURAR_FILA_CENTAVOS`
+O `FIREBASE_DATABASE_URL` em `wrangler.toml` já está correto
+(`https://karaokebar-7a67f-default-rtdb.firebaseio.com`, batendo com o
+`firebaseConfig.databaseURL` real gerado pelo console) — não precisa ajustar.
+(Correção: uma versão anterior deste README afirmava isso sem eu ter de fato
+conferido o arquivo — o valor ainda estava com o nome de projeto da Fase 1
+`cantoke-pix-sandbox`, que nunca chegou a ser criado. Só foi corrigido depois que o
+`wrangler tail` mostrou o 404 real durante os testes.) Ajuste `PRECO_FURAR_FILA_CENTAVOS`
 se quiser um valor diferente de R$10,00. O preço NUNCA é aceito do cliente.
 
 ```bash
