@@ -155,20 +155,29 @@ async function handleWebhookPix(request, env) {
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
+    // Garante CORS_HEADERS em QUALQUER resposta, inclusive erros não previstos que
+    // escapem de dentro dos handlers (ex: barExiste()/fbGet() lançando exceção) — sem
+    // isso, o runtime do Workers devolve um 500 cru, sem headers, e o navegador reporta
+    // como erro de CORS em vez de mostrar o erro real por trás.
+    try {
+      const url = new URL(request.url);
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: CORS_HEADERS });
+      if (request.method === "OPTIONS") {
+        return new Response(null, { headers: CORS_HEADERS });
+      }
+
+      if (request.method === "POST" && url.pathname === "/criar-cobranca") {
+        return await handleCriarCobranca(request, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/webhook-pix") {
+        return await handleWebhookPix(request, env);
+      }
+
+      return json({ erro: "Não encontrado" }, 404);
+    } catch (erro) {
+      console.error("Erro não tratado no Worker", erro);
+      return json({ erro: "Erro interno do servidor" }, 500);
     }
-
-    if (request.method === "POST" && url.pathname === "/criar-cobranca") {
-      return handleCriarCobranca(request, env);
-    }
-
-    if (request.method === "POST" && url.pathname === "/webhook-pix") {
-      return handleWebhookPix(request, env);
-    }
-
-    return json({ erro: "Não encontrado" }, 404);
   },
 };
