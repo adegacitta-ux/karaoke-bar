@@ -10,16 +10,16 @@ const MP_API_BASE = "https://api.mercadopago.com";
  * @param {string} params.descricao
  * @param {string} params.payerEmail - e-mail do comprador de teste do MP
  * @param {string} params.barId
- * @param {string} params.nomeId
+ * @param {number} params.pedidoId - id do pedido na fila (Date.now()+random, ver fila-v2-sandbox)
  */
-export async function criarCobrancaPix({ accessToken, valorCentavos, descricao, payerEmail, barId, nomeId }) {
+export async function criarCobrancaPix({ accessToken, valorCentavos, descricao, payerEmail, barId, pedidoId }) {
   const body = {
     transaction_amount: Math.round(valorCentavos) / 100,
     description: descricao,
     payment_method_id: "pix",
     payer: { email: payerEmail },
-    metadata: { bar_id: barId, nome_id: nomeId },
-    external_reference: `${barId}:${nomeId}`,
+    metadata: { bar_id: barId, pedido_id: pedidoId },
+    external_reference: `${barId}:${pedidoId}`,
   };
 
   const resp = await fetch(`${MP_API_BASE}/v1/payments`, {

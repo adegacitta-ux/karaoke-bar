@@ -1,6 +1,6 @@
 import { criarCobrancaPix, consultarPagamento } from "./mercadopago.js";
 import { validarAssinaturaWebhook } from "./validarAssinatura.js";
-import { barExiste, pagamentoJaProcessado, furarFila } from "./firebase.js";
+import { barExiste, pagamentoJaProcessado, pedidoExisteNaFila, furarFila } from "./firebase.js";
 import { permitido } from "./rateLimit.js";
 
 const CORS_HEADERS = {
@@ -29,9 +29,9 @@ async function handleCriarCobranca(request, env) {
     return json({ erro: "JSON inválido" }, 400);
   }
 
-  const { barId, nomeId } = body ?? {};
-  if (!barId || !nomeId) {
-    return json({ erro: "barId e nomeId são obrigatórios" }, 400);
+  const { barId, pedidoId } = body ?? {};
+  if (!barId || !Number.isFinite(pedidoId)) {
+    return json({ erro: "barId e pedidoId (número) são obrigatórios" }, 400);
   }
 
   // O valor é definido pelo servidor (env var), nunca confiado do cliente — evita que
@@ -42,14 +42,18 @@ async function handleCriarCobranca(request, env) {
     return json({ erro: "Bar não encontrado" }, 404);
   }
 
+  if (!(await pedidoExisteNaFila(env.FIREBASE_DATABASE_URL, barId, pedidoId, env.FIREBASE_SERVICE_ACCOUNT_JSON))) {
+    return json({ erro: "Pedido não encontrado na fila" }, 404);
+  }
+
   try {
     const cobranca = await criarCobrancaPix({
       accessToken: env.MP_ACCESS_TOKEN,
       valorCentavos,
-      descricao: `Fura-fila karaokê — ${nomeId}`,
+      descricao: `Fura-fila karaokê — pedido ${pedidoId}`,
       payerEmail: body.payerEmail ?? "comprador-teste@cantoke.dev",
       barId,
-      nomeId,
+      pedidoId,
     });
 
     return json({
@@ -109,10 +113,10 @@ async function handleWebhookPix(request, env) {
   }
 
   const barId = pagamento.metadata?.bar_id;
-  const nomeId = pagamento.metadata?.nome_id;
+  const pedidoId = pagamento.metadata?.pedido_id;
 
-  if (!barId || !nomeId) {
-    console.warn("Webhook ignorado: pagamento sem metadata de bar/nome", { dataId });
+  if (!barId || !Number.isFinite(pedidoId)) {
+    console.warn("Webhook ignorado: pagamento sem metadata de bar/pedido", { dataId });
     return json({ ok: true }, 200);
   }
 
@@ -136,7 +140,7 @@ async function handleWebhookPix(request, env) {
     await furarFila({
       databaseURL: env.FIREBASE_DATABASE_URL,
       barId,
-      nomeId,
+      pedidoId,
       paymentId: dataId,
       valorCentavos: pagamento.transaction_amount * 100,
       serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON,
