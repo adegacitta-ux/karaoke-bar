@@ -1,0 +1,50 @@
+{
+  "config": {
+    "nome": "Bar Teste PIX Sandbox",
+    "corPrimaria": "#6c5ce7",
+    "adminEmail": "admin@cantoke.dev"
+  },
+  "karaoke": {
+    "fila": [
+      {
+        "id": 1,
+        "nome": "Ana Teste",
+        "mesa": "5",
+        "musica": "Evidências",
+        "artista": "Chitãozinho & Xororó",
+        "timestamp": 1750000000000,
+        "timestampFila": 1750000000000,
+        "vezesCantadas": 0,
+        "youtubeUrl": null
+      },
+      {
+        "id": 2,
+        "nome": "Bruno Teste",
+        "mesa": "3",
+        "musica": "Ai Se Eu Te Pego",
+        "artista": "Michel Teló",
+        "timestamp": 1750000060000,
+        "timestampFila": 1750000060000,
+        "vezesCantadas": 0,
+        "youtubeUrl": null
+      },
+      {
+        "id": 3,
+        "nome": "Carla Teste",
+        "mesa": "7",
+        "musica": "Anunciação",
+        "artista": "Alceu Valença",
+        "timestamp": 1750000120000,
+        "timestampFila": 1750000120000,
+        "vezesCantadas": 1,
+        "youtubeUrl": null
+      }
+    ],
+    "contagem": {
+      "carla": 1
+    },
+    "manualFechada": false,
+    "apresentacaoAtual": null,
+    "ultimaAtualizacao": "2026-08-27T00:00:00.000Z"
+  }
+}

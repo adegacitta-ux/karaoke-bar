@@ -128,9 +128,13 @@ export async function fbPut(databaseURL, path, valor, serviceAccountJson) {
   return resp.json();
 }
 
-/** Confere se o bar existe antes de processar qualquer cobrança/webhook. */
+/**
+ * Confere se o bar existe antes de processar qualquer cobrança/webhook.
+ * Espelha a produção (v2): é o nó /config que define "bar existe" — o front-end
+ * do v2 mostra "bar não encontrado" quando ele é null, não quando /karaoke é null.
+ */
 export async function barExiste(databaseURL, barId, serviceAccountJson) {
-  const dados = await fbGet(databaseURL, `/bares/${barId}/karaoke`, serviceAccountJson);
+  const dados = await fbGet(databaseURL, `/bares/${barId}/config`, serviceAccountJson);
   return dados !== null;
 }
 
@@ -139,41 +143,71 @@ export async function pagamentoJaProcessado(databaseURL, paymentId, serviceAccou
   return dados !== null;
 }
 
+// A API REST do RTDB devolve um array denso como array, mas se por algum motivo o nó
+// virar esparso (ex: alguém apagou um item no meio pelo console) o Firebase devolve um
+// objeto com chaves numéricas em string — normaliza pros dois casos.
+function normalizarComoArray(valor) {
+  if (valor === null) return [];
+  if (Array.isArray(valor)) return valor;
+  return Object.keys(valor)
+    .sort((a, b) => Number(a) - Number(b))
+    .map((chave) => valor[chave]);
+}
+
+/** Confere se um pedido ainda está na fila antes de gerar uma cobrança pra ele. */
+export async function pedidoExisteNaFila(databaseURL, barId, pedidoId, serviceAccountJson) {
+  const fila = normalizarComoArray(await fbGet(databaseURL, `/bares/${barId}/karaoke/fila`, serviceAccountJson));
+  return fila.some((pedido) => pedido.id === pedidoId);
+}
+
 /**
- * Move um nome para o topo absoluto da fila (fura-fila), de forma idempotente e
- * segura contra concorrência (retry em caso de escrita simultânea no mesmo nó).
+ * Move um pedido para o topo absoluto da fila (fura-fila), de forma idempotente e
+ * segura contra concorrência.
  *
- * Critério: furouFila=true sempre vence a ordenação normal. Entre furadores,
- * quem confirmou o pagamento primeiro (furouFilaOrdem menor) fica na frente —
- * ver frontend/index.html para o comparator que aplica essa regra na exibição.
+ * Schema real (portado da produção v2): /bares/{barId}/karaoke/fila é um ARRAY de
+ * pedidos, não um map por chave — em produção o SDK cliente usa .transaction() no nó
+ * inteiro pra evitar pedidos sumindo em escritas simultâneas (é a mesma race condition
+ * que o Passo 6 pede pra evitar aqui). A API REST não tem transaction() (depende de
+ * WebSocket persistente do SDK cliente); o equivalente aqui é ETag/If-Match no array
+ * inteiro — GET com X-Firebase-ETag, acha o pedido pelo `id`, PUT do array inteiro de
+ * volta com If-Match, retry em 412 (conflito, ex: o DJ salvou algo no meio do caminho).
+ *
+ * Critério: furouFila=true sempre vence a ordenação normal (ver ordenarFila() em
+ * fila-v2-sandbox/index.html). Entre furadores, quem confirmou o pagamento primeiro
+ * (furouFilaOrdem menor) fica na frente.
  */
-export async function furarFila({ databaseURL, barId, nomeId, paymentId, valorCentavos, serviceAccountJson }) {
+export async function furarFila({ databaseURL, barId, pedidoId, paymentId, valorCentavos, serviceAccountJson }) {
   const accessToken = await obterAccessToken(serviceAccountJson);
-  const pathNome = `/bares/${barId}/karaoke/fila/${nomeId}`;
+  const pathFila = `/bares/${barId}/karaoke/fila`;
 
   const MAX_TENTATIVAS = 5;
   for (let tentativa = 0; tentativa < MAX_TENTATIVAS; tentativa++) {
-    const { valor: nomeAtual, etag } = await fbGetComETag(databaseURL, pathNome, accessToken);
+    const { valor, etag } = await fbGetComETag(databaseURL, pathFila, accessToken);
+    const fila = normalizarComoArray(valor);
 
-    if (nomeAtual === null) {
-      throw Object.assign(new Error(`Nome ${nomeId} não encontrado na fila do bar ${barId}`), { codigo: "NOME_NAO_ENCONTRADO" });
+    const index = fila.findIndex((pedido) => pedido.id === pedidoId);
+    if (index === -1) {
+      throw Object.assign(new Error(`Pedido ${pedidoId} não encontrado na fila do bar ${barId}`), {
+        codigo: "PEDIDO_NAO_ENCONTRADO",
+      });
     }
 
-    const atualizado = {
-      ...nomeAtual,
+    const filaAtualizada = [...fila];
+    filaAtualizada[index] = {
+      ...fila[index],
       furouFila: true,
       furouFilaOrdem: { ".sv": "timestamp" },
       furouFilaPaymentId: paymentId,
     };
 
-    const resp = await fetch(urlPara(databaseURL, pathNome), {
+    const resp = await fetch(urlPara(databaseURL, pathFila), {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
         "If-Match": etag,
       },
-      body: JSON.stringify(atualizado),
+      body: JSON.stringify(filaAtualizada),
     });
 
     if (resp.ok) {
@@ -183,7 +217,7 @@ export async function furarFila({ databaseURL, barId, nomeId, paymentId, valorCe
         `/pagamentosProcessados/${paymentId}`,
         {
           barId,
-          nomeId,
+          pedidoId,
           valorCentavos,
           processadoEm: { ".sv": "timestamp" },
         },
@@ -193,11 +227,12 @@ export async function furarFila({ databaseURL, barId, nomeId, paymentId, valorCe
     }
 
     if (resp.status === 412) {
-      // Conflito de concorrência (outra escrita mudou o nó entre o GET e o PUT). Retry.
+      // Conflito de concorrência (outra escrita — um cliente novo na fila, o DJ usando
+      // "Pular Vez"/"Remover" — mudou o nó entre o GET e o PUT). Retry.
       continue;
     }
 
-    throw new Error(`Firebase PUT ${pathNome} falhou (status ${resp.status}): ${await resp.text()}`);
+    throw new Error(`Firebase PUT ${pathFila} falhou (status ${resp.status}): ${await resp.text()}`);
   }
 
   throw new Error(`Não foi possível reordenar a fila após ${MAX_TENTATIVAS} tentativas (conflitos de concorrência)`);
