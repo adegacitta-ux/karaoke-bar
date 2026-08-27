@@ -1,4 +1,4 @@
-import { criarCobrancaPix, consultarPagamento } from "./mercadopago.js";
+import { criarCobrancaPix, criarCobrancaCartaoTeste, consultarPagamento } from "./mercadopago.js";
 import { validarAssinaturaWebhook } from "./validarAssinatura.js";
 import { barExiste, pagamentoJaProcessado, pedidoExisteNaFila, furarFila } from "./firebase.js";
 import { permitido } from "./rateLimit.js";
@@ -46,25 +46,45 @@ async function handleCriarCobranca(request, env) {
     return json({ erro: "Pedido não encontrado na fila" }, 404);
   }
 
+  // TEST_PAYMENT_METHOD=card: SOMENTE quando explicitamente configurado no Worker (ver
+  // wrangler.toml) — nunca no caminho normal, que é sempre PIX. Existe porque o
+  // sandbox do Mercado Pago não permite completar um pagamento PIX de verdade (só gera
+  // o QR code), então não há como testar o webhook de aprovação de ponta a ponta sem
+  // isso. Ver docs/TESTES.md.
+  const modoTeste = env.TEST_PAYMENT_METHOD === "card";
+  const NOMES_TESTE_VALIDOS = ["APRO", "OTHE", "CONT", "CALL", "FUND", "SECU", "EXPI", "FORM"];
+  const cardholderTeste =
+    modoTeste && NOMES_TESTE_VALIDOS.includes(body.cardholderTeste) ? body.cardholderTeste : "APRO";
+
   try {
-    const cobranca = await criarCobrancaPix({
-      accessToken: env.MP_ACCESS_TOKEN,
-      valorCentavos,
-      descricao: `Fura-fila karaokê — pedido ${pedidoId}`,
-      payerEmail: body.payerEmail ?? "comprador-teste@cantoke.dev",
-      barId,
-      pedidoId,
-    });
+    const cobranca = modoTeste
+      ? await criarCobrancaCartaoTeste({
+          accessToken: env.MP_ACCESS_TOKEN,
+          valorCentavos,
+          descricao: `[TESTE] Fura-fila karaokê — pedido ${pedidoId}`,
+          barId,
+          pedidoId,
+          cardholderName: cardholderTeste,
+        })
+      : await criarCobrancaPix({
+          accessToken: env.MP_ACCESS_TOKEN,
+          valorCentavos,
+          descricao: `Fura-fila karaokê — pedido ${pedidoId}`,
+          payerEmail: body.payerEmail ?? "comprador-teste@cantoke.dev",
+          barId,
+          pedidoId,
+        });
 
     return json({
       paymentId: cobranca.paymentId,
       status: cobranca.status,
       qrCode: cobranca.qrCode,
       qrCodeBase64: cobranca.qrCodeBase64,
+      ...(modoTeste ? { modoTeste: "cartao", cardholderTeste } : {}),
     });
   } catch (erro) {
-    console.error("Erro ao criar cobrança PIX", erro, erro.detalhes);
-    return json({ erro: "Falha ao criar cobrança PIX" }, 502);
+    console.error("Erro ao criar cobrança", erro, erro.detalhes);
+    return json({ erro: "Falha ao criar cobrança" }, 502);
   }
 }
 
@@ -155,20 +175,29 @@ async function handleWebhookPix(request, env) {
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
+    // Garante CORS_HEADERS em QUALQUER resposta, inclusive erros não previstos que
+    // escapem de dentro dos handlers (ex: barExiste()/fbGet() lançando exceção) — sem
+    // isso, o runtime do Workers devolve um 500 cru, sem headers, e o navegador reporta
+    // como erro de CORS em vez de mostrar o erro real por trás.
+    try {
+      const url = new URL(request.url);
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: CORS_HEADERS });
+      if (request.method === "OPTIONS") {
+        return new Response(null, { headers: CORS_HEADERS });
+      }
+
+      if (request.method === "POST" && url.pathname === "/criar-cobranca") {
+        return await handleCriarCobranca(request, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/webhook-pix") {
+        return await handleWebhookPix(request, env);
+      }
+
+      return json({ erro: "Não encontrado" }, 404);
+    } catch (erro) {
+      console.error("Erro não tratado no Worker", erro);
+      return json({ erro: "Erro interno do servidor" }, 500);
     }
-
-    if (request.method === "POST" && url.pathname === "/criar-cobranca") {
-      return handleCriarCobranca(request, env);
-    }
-
-    if (request.method === "POST" && url.pathname === "/webhook-pix") {
-      return handleWebhookPix(request, env);
-    }
-
-    return json({ erro: "Não encontrado" }, 404);
   },
 };

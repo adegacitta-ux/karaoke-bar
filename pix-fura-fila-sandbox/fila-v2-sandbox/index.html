@@ -681,7 +681,7 @@
         // Projeto karaokebar-7a67f (sandbox, plano Spark) — NÃO é o projeto de produção
         // do v2. Preencha com os valores reais em Configurações do projeto → Seus apps.
         const firebaseConfig = {
-            apiKey: "COLE_AQUI",
+            apiKey: "AIzaSyBianYFsS5_8z6HDlBnucOi53qdz2qzj2A",
             authDomain: "karaokebar-7a67f.firebaseapp.com",
             databaseURL: "https://karaokebar-7a67f-default-rtdb.firebaseio.com",
             projectId: "karaokebar-7a67f",
@@ -696,8 +696,9 @@
         // checklist de segurança da Fase 2 em ../README.md).
         const BAR_ID = 'teste-pix-sandbox';
 
-        // URL do Worker do PIX fura-fila (Fase 1) já publicado — ver ../worker/README.
-        const PIX_WORKER_URL = 'https://cantoke-pix-sandbox.SEU-SUBDOMINIO.workers.dev';
+        // URL do Worker do PIX fura-fila (Fase 1), já deployado com os secrets
+        // configurados (MP_ACCESS_TOKEN, MP_WEBHOOK_SECRET, FIREBASE_SERVICE_ACCOUNT_JSON).
+        const PIX_WORKER_URL = 'https://cantoke-pix-sandbox.cantoke-sandbox-2026.workers.dev';
 
         // Todo o caminho no banco desse bar começa aqui — é só usar `caminhoBar(...)`
         // em vez de escrever 'karaoke/...' direto, em qualquer lugar do código.
@@ -2309,7 +2310,25 @@
         function copiarCodigoPix() {
             const campo = document.getElementById('furar-fila-copia-cola');
             campo.select();
-            navigator.clipboard.writeText(campo.value);
+            campo.setSelectionRange(0, campo.value.length); // alguns navegadores mobile precisam disso além do .select()
+
+            // navigator.clipboard só existe em contexto seguro (https ou localhost) — testando
+            // via IP local na rede (http://192.168.x.x, por exemplo) ele fica undefined.
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(campo.value).catch(() => copiarCodigoPixFallback(campo));
+            } else {
+                copiarCodigoPixFallback(campo);
+            }
+        }
+
+        function copiarCodigoPixFallback(campo) {
+            try {
+                if (!document.execCommand('copy')) throw new Error('execCommand copy retornou false');
+            } catch (e) {
+                // Último recurso: o texto já está selecionado no campo (ver campo.select()
+                // acima) — a pessoa copia manualmente (Ctrl+C ou toque e segure → Copiar).
+                alert('Não deu pra copiar automaticamente. O código já está selecionado — copie manualmente (Ctrl+C ou toque e segure).');
+            }
         }
 
         // Ações do DJ
