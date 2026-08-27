@@ -2310,7 +2310,25 @@
         function copiarCodigoPix() {
             const campo = document.getElementById('furar-fila-copia-cola');
             campo.select();
-            navigator.clipboard.writeText(campo.value);
+            campo.setSelectionRange(0, campo.value.length); // alguns navegadores mobile precisam disso além do .select()
+
+            // navigator.clipboard só existe em contexto seguro (https ou localhost) — testando
+            // via IP local na rede (http://192.168.x.x, por exemplo) ele fica undefined.
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(campo.value).catch(() => copiarCodigoPixFallback(campo));
+            } else {
+                copiarCodigoPixFallback(campo);
+            }
+        }
+
+        function copiarCodigoPixFallback(campo) {
+            try {
+                if (!document.execCommand('copy')) throw new Error('execCommand copy retornou false');
+            } catch (e) {
+                // Último recurso: o texto já está selecionado no campo (ver campo.select()
+                // acima) — a pessoa copia manualmente (Ctrl+C ou toque e segure → Copiar).
+                alert('Não deu pra copiar automaticamente. O código já está selecionado — copie manualmente (Ctrl+C ou toque e segure).');
+            }
         }
 
         // Ações do DJ
