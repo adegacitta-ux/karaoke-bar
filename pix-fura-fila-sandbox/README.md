@@ -110,15 +110,27 @@ ele simplesmente não limita (não quebra o Worker). Para ativar:
 `wrangler.toml`.
 
 ### 4. Front-end de teste (`fila-v2-sandbox/`)
-Edite `fila-v2-sandbox/index.html`: preencha `firebaseConfig.apiKey` (Configurações do
-projeto → Seus apps, em `karaokebar-7a67f`) e `PIX_WORKER_URL` (URL do Worker
-publicado). `BAR_ID` já está fixo em `'teste-pix-sandbox'` — não precisa (e não deve)
-ser alterado para aceitar outros bares.
+`fila-v2-sandbox/index.html` já vem com `firebaseConfig.apiKey`, `PIX_WORKER_URL` e
+`BAR_ID` (fixo em `'teste-pix-sandbox'` — não deve ser alterado para aceitar outros
+bares) preenchidos e commitados.
 
-Abra o arquivo direto no navegador, ou sirva com `python -m http.server` dentro de
-`fila-v2-sandbox/`. A aba "Cliente" mostra a lista "Próximos" com o botão "Furar fila"
-por pedido; a aba "Admin/DJ" (login com o `adminEmail` do seed) mostra a fila completa
-com as ações normais (Chamar Próximo, Pular Vez, Remover).
+**Rodar localmente** — abrir o arquivo direto no navegador (`file://...`) funciona na
+maior parte do tempo, mas alguns navegadores restringem módulos ES (`type="module"`,
+usado pelo SDK do Firebase) em `file://`. Se a página carregar em branco ou o console
+mostrar erro de CORS/módulo, sirva por HTTP em vez de abrir o arquivo direto — dentro
+de `fila-v2-sandbox/`, qualquer um destes já resolve, sem instalar nada globalmente:
+
+```bash
+python3 -m http.server 8080      # já vem com o Python — 100% built-in
+# ou
+npx serve -l 8080                # usa o Node que você já tem pro Worker
+```
+
+Depois abra `http://localhost:8080` no navegador.
+
+A aba "Cliente" mostra a lista "Próximos" com o botão "Furar fila" por pedido; a aba
+"Admin/DJ" (login com o `adminEmail` do seed) mostra a fila completa com as ações
+normais (Chamar Próximo, Pular Vez, Remover).
 
 `display.html` e `catalogo.html` do v2 **não foram portados** — fora do escopo de
 validar a reordenação da fila pelo PIX.
