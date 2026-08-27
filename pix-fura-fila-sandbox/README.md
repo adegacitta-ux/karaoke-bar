@@ -46,8 +46,13 @@ nada foi escrito no repositório `karaoke-bar-v2` (só leitura, para auditoria).
     `firebase/seed-teste-pix-sandbox.json` (que escrevem em
     `bares/teste-pix-sandbox/...`) são estritamente aditivos: criam uma chave irmã
     nova, sem tocar no `karaoke` legado.
-  - Ainda pendente (só o usuário pode fazer, via console): publicar
-    `firebase/database.rules.json` e importar `firebase/seed-teste-pix-sandbox.json`.
+  - ✅ **Regras publicadas e seed importado** (2026-08-27, feito pelo usuário via
+    console) — `bares/teste-pix-sandbox` existe agora com `config` + 3 pedidos de
+    teste, e as regras de `firebase/database.rules.json` estão no ar. O `/karaoke`
+    legado na raiz permanece intocado.
+  - Ainda pendente (só o usuário pode fazer, via console/dashboards): criar o usuário
+    de Authentication, gerar a service account key, criar a aplicação no Mercado Pago
+    e fazer o deploy do Worker (Passos 1.6, 1.7, 2 e 3 abaixo).
 - Os testes do Passo 8 / Fase 2 passo 6 (`docs/TESTES.md`) estão documentados como
   checklist, não executados.
 
@@ -59,16 +64,10 @@ nada foi escrito no repositório `karaoke-bar-v2` (só leitura, para auditoria).
 3. ~~Audite os `barId`s existentes~~ ✅ **Confirmado**: a raiz do banco só tem o nó
    `karaoke` (dados legados) — não existe nenhum nó `bares` ainda, então não há
    colisão possível com `bares/teste-pix-sandbox`.
-4. **Publique as regras**: Realtime Database → Regras → cole o conteúdo de
-   `firebase/database.rules.json` → Publicar. Note que essas regras só concedem
-   qualquer acesso ao nó `bares/teste-pix-sandbox` — todo o resto (incluindo o
-   `karaoke` legado na raiz) fica implicitamente negado, sem precisar de uma regra
-   explícita de bloqueio.
-5. **Importe os dados de teste**: Realtime Database → aba Dados → clique nos `⋮`
-   (menu) do nó raiz **ou** navegue até criar o nó `bares/teste-pix-sandbox` e use
-   "Importar JSON" apontando pro conteúdo de `firebase/seed-teste-pix-sandbox.json`
-   (ele já é o objeto completo para colar dentro de `bares/teste-pix-sandbox`, com
-   `config` + 3 pedidos de teste na fila).
+4. ~~Publique as regras~~ ✅ **Feito** (2026-08-27) — `firebase/database.rules.json`
+   está publicado, restrito a `bares/teste-pix-sandbox`.
+5. ~~Importe os dados de teste~~ ✅ **Feito** (2026-08-27) — `bares/teste-pix-sandbox`
+   tem `config` + os 3 pedidos de `firebase/seed-teste-pix-sandbox.json`.
 6. **Authentication**: confirme que já existe (ou crie) um usuário de e-mail/senha com
    o e-mail usado em `config.adminEmail` no seed (`admin@cantoke.dev`, ou o que você
    ajustar) — é a conta de DJ para o bar de teste.
@@ -91,9 +90,10 @@ npx wrangler secret put MP_ACCESS_TOKEN
 npx wrangler secret put MP_WEBHOOK_SECRET
 npx wrangler secret put FIREBASE_SERVICE_ACCOUNT_JSON   # cole o JSON inteiro em uma linha
 ```
-Ajuste `FIREBASE_DATABASE_URL` (deve ser a URL real de `karaokebar-7a67f`, confira no
-console — o valor em `wrangler.toml` é um palpite de formato padrão) e
-`PRECO_FURAR_FILA_CENTAVOS` em `wrangler.toml`. O preço NUNCA é aceito do cliente.
+O `FIREBASE_DATABASE_URL` já em `wrangler.toml`
+(`https://karaokebar-7a67f-default-rtdb.firebaseio.com`) foi confirmado batendo com a
+URL real vista no console — não precisa ajustar. Ajuste `PRECO_FURAR_FILA_CENTAVOS`
+se quiser um valor diferente de R$10,00. O preço NUNCA é aceito do cliente.
 
 ```bash
 npx wrangler deploy
