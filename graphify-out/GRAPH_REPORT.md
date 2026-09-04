@@ -4,7 +4,7 @@
 - Corpus is ~35,871 words - fits in a single context window. You may not need a graph.
 
 ## Summary
-- 88 nodes · 132 edges · 11 communities (10 shown, 1 thin omitted)
+- 86 nodes · 127 edges · 11 communities (10 shown, 1 thin omitted)
 - Extraction: 90% EXTRACTED · 8% INFERRED · 2% AMBIGUOUS · INFERRED: 11 edges (avg confidence: 0.86)
 - Token cost: 141,661 input · 0 output
 
@@ -55,7 +55,7 @@
 
 ### Community 0 - "Project Docs & Entry Pages"
 Cohesion: 0.16
-Nodes (15): display.html (Painel de Exibição / Telão), dj-login.html (DJ Login Gate Template), index2.html (earlier app copy), index3.html (earlier app copy, CRLF), index.html (Karaokê Manager App), TESTES.md (Roteiro de Testes Manuais), fila-v2-sandbox/index.html (ported v2 front-end + Furar Fila), frontend/index.html (Fase 1 front-end, aposentado) (+7 more)
+Nodes (13): display.html (Painel de Exibição / Telão), dj-login.html (DJ Login Gate Template), index.html (Karaokê Manager App), TESTES.md (Roteiro de Testes Manuais), fila-v2-sandbox/index.html (ported v2 front-end + Furar Fila), frontend/index.html (Fase 1 front-end, aposentado) (+7 more)
 
 ### Community 1 - "Payment Worker & MercadoPago"
 Cohesion: 0.29
@@ -85,12 +85,6 @@ Nodes (4): atualizarDisplayWithData(), initFirebase() (display), salvarNoFirebas
 Cohesion: 0.50
 Nodes (3): checkAuth(), Client-Side Admin/DJ Password Gate, handleAdminAuthSubmit()
 
-## Ambiguous Edges - Review These
-- `index2.html (earlier app copy)` → `citta-logo.svg`  [AMBIGUOUS]
-  index2.html · relation: references
-- `index3.html (earlier app copy, CRLF)` → `citta-logo.svg`  [AMBIGUOUS]
-  index3.html · relation: references
-
 ## Knowledge Gaps
 - **13 isolated node(s):** `name`, `private`, `version`, `dev`, `deploy` (+8 more)
   These have ≤1 connection - possible missing edges or undocumented components.
@@ -99,10 +93,6 @@ Nodes (3): checkAuth(), Client-Side Admin/DJ Password Gate, handleAdminAuthSubmi
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **What is the exact relationship between `index2.html (earlier app copy)` and `citta-logo.svg`?**
-  _Edge tagged AMBIGUOUS (relation: references) - confidence is low._
-- **What is the exact relationship between `index3.html (earlier app copy, CRLF)` and `citta-logo.svg`?**
-  _Edge tagged AMBIGUOUS (relation: references) - confidence is low._
 - **Why does `furarFila()` connect `Firebase REST Helpers` to `Payment Worker & MercadoPago`?**
   _High betweenness centrality (0.015) - this node is a cross-community bridge._
 - **What connects `name`, `private`, `version` to the rest of the system?**
