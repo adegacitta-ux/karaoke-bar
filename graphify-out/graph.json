@@ -572,7 +572,7 @@
     },
     {
       "id": "display_display",
-      "label": "display.html (Painel de Exibi\u00e7\u00e3o / Tel\u00e3o)",
+      "label": "display.html (Painel de Exibição / Telão)",
       "author": null,
       "captured_at": null,
       "community": 0,
@@ -599,36 +599,8 @@
       "source_url": null
     },
     {
-      "id": "index2_index2",
-      "label": "index2.html (earlier app copy)",
-      "author": null,
-      "captured_at": null,
-      "community": 0,
-      "community_name": "Project Docs & Entry Pages",
-      "contributor": null,
-      "file_type": "code",
-      "norm_label": "index2.html (earlier app copy)",
-      "source_file": "index2.html",
-      "source_location": null,
-      "source_url": null
-    },
-    {
-      "id": "index3_index3",
-      "label": "index3.html (earlier app copy, CRLF)",
-      "author": null,
-      "captured_at": null,
-      "community": 0,
-      "community_name": "Project Docs & Entry Pages",
-      "contributor": null,
-      "file_type": "code",
-      "norm_label": "index3.html (earlier app copy, crlf)",
-      "source_file": "index3.html",
-      "source_location": null,
-      "source_url": null
-    },
-    {
       "id": "index_index",
-      "label": "index.html (Karaok\u00ea Manager App)",
+      "label": "index.html (Karaokê Manager App)",
       "author": null,
       "captured_at": null,
       "community": 0,
@@ -712,7 +684,7 @@
     },
     {
       "id": "readme_readme",
-      "label": "Karaok\u00ea Manager README",
+      "label": "Karaokê Manager README",
       "author": null,
       "captured_at": null,
       "community": 0,
@@ -763,7 +735,7 @@
       "contributor": null,
       "file_type": "rationale",
       "norm_label": "webhook idempotency (/pagamentosprocessados)",
-      "rationale": "/pagamentosProcessados/{paymentId} is only written after the queue reorder succeeds, so a webhook resent before that point just repeats the concurrency retry rather than double-applying the fura-fila effect \u2014 guards against Mercado Pago's at-least-once webhook delivery causing duplicate reorders.",
+      "rationale": "/pagamentosProcessados/{paymentId} is only written after the queue reorder succeeds, so a webhook resent before that point just repeats the concurrency retry rather than double-applying the fura-fila effect — guards against Mercado Pago's at-least-once webhook delivery causing duplicate reorders.",
       "source_file": "pix-fura-fila-sandbox/README.md",
       "source_location": null,
       "source_url": null
@@ -778,7 +750,7 @@
       "contributor": null,
       "file_type": "rationale",
       "norm_label": "optimistic concurrency via rest etag (transaction() substitute)",
-      "rationale": "Production uses the Firebase client SDK's .transaction() on the whole fila array to avoid lost updates from simultaneous writes, but the REST API used by the Cloudflare Worker has no transaction() (it needs a persistent WebSocket). The Worker instead does GET with X-Firebase-ETag, locates the pedido by id, PUTs the whole array back with If-Match, and retries on 412 \u2014 an optimistic-concurrency equivalent, implemented in worker/src/firebase.js's furarFila().",
+      "rationale": "Production uses the Firebase client SDK's .transaction() on the whole fila array to avoid lost updates from simultaneous writes, but the REST API used by the Cloudflare Worker has no transaction() (it needs a persistent WebSocket). The Worker instead does GET with X-Firebase-ETag, locates the pedido by id, PUTs the whole array back with If-Match, and retries on 412 — an optimistic-concurrency equivalent, implemented in worker/src/firebase.js's furarFila().",
       "source_file": "pix-fura-fila-sandbox/README.md",
       "source_location": null,
       "source_url": null
@@ -808,7 +780,7 @@
       "contributor": null,
       "file_type": "rationale",
       "norm_label": "webhook signature validation (hmac-sha256)",
-      "rationale": "The Mercado Pago webhook's x-signature header is validated via HMAC-SHA256 (Web Crypto) against the documented manifest string (id/request-id/ts). An invalid signature returns 401 and nothing is written to Firebase \u2014 prevents forged payment-approved webhooks from reordering the queue.",
+      "rationale": "The Mercado Pago webhook's x-signature header is validated via HMAC-SHA256 (Web Crypto) against the documented manifest string (id/request-id/ts). An invalid signature returns 401 and nothing is written to Firebase — prevents forged payment-approved webhooks from reordering the queue.",
       "source_file": "pix-fura-fila-sandbox/README.md",
       "source_location": null,
       "source_url": null
@@ -991,14 +963,14 @@
       "contributor": null,
       "file_type": "rationale",
       "norm_label": "pix \"fura-fila\" (pay-to-skip-queue)",
-      "rationale": "Lets a customer pay via PIX (R$10 default, PRECO_FURAR_FILA_CENTAVOS server-side only, never client-supplied) to jump to the top of the queue. On approved payment the Worker sets furouFila=true and a server-timestamped furouFilaOrdem so ordenarFila() can rank paid requests first, tie-broken by payment order \u2014 validated end-to-end without needing a real credit card via Mercado Pago Sandbox + a Cloudflare Worker webhook.",
+      "rationale": "Lets a customer pay via PIX (R$10 default, PRECO_FURAR_FILA_CENTAVOS server-side only, never client-supplied) to jump to the top of the queue. On approved payment the Worker sets furouFila=true and a server-timestamped furouFilaOrdem so ordenarFila() can rank paid requests first, tie-broken by payment order — validated end-to-end without needing a real credit card via Mercado Pago Sandbox + a Cloudflare Worker webhook.",
       "source_file": "pix-fura-fila-sandbox/README.md",
       "source_location": null,
       "source_url": null
     },
     {
       "id": "readme_priorizacao_por_rodadas",
-      "label": "Prioriza\u00e7\u00e3o por Rodadas (fairness algorithm)",
+      "label": "Priorização por Rodadas (fairness algorithm)",
       "author": null,
       "captured_at": null,
       "community": 2,
@@ -1069,7 +1041,7 @@
     },
     {
       "id": "readme_persistencia_dados",
-      "label": "Persist\u00eancia via localStorage (client-only fallback)",
+      "label": "Persistência via localStorage (client-only fallback)",
       "author": null,
       "captured_at": null,
       "community": 6,
@@ -1155,7 +1127,7 @@
     },
     {
       "id": "readme_bloqueio_horario_limite",
-      "label": "Bloqueio Autom\u00e1tico por Hor\u00e1rio Limite",
+      "label": "Bloqueio Automático por Horário Limite",
       "author": null,
       "captured_at": null,
       "community": 8,
@@ -1163,7 +1135,7 @@
       "contributor": null,
       "file_type": "rationale",
       "norm_label": "bloqueio automatico por horario limite",
-      "rationale": "The queue auto-closes once the estimated finish time (queue length \u00d7 5 min/song) would cross 23:00, so the bar doesn't keep accepting requests it can't actually play before closing; a manual DJ override exists for early/late closes.",
+      "rationale": "The queue auto-closes once the estimated finish time (queue length × 5 min/song) would cross 23:00, so the bar doesn't keep accepting requests it can't actually play before closing; a manual DJ override exists for early/late closes.",
       "source_file": "README.md",
       "source_location": null,
       "source_url": null
@@ -2180,26 +2152,6 @@
       "weight": 1.0
     },
     {
-      "source": "citta_logo_citta_logo",
-      "target": "index2_index2",
-      "relation": "references",
-      "confidence": "AMBIGUOUS",
-      "confidence_score": 0.3,
-      "source_file": "index2.html",
-      "source_location": null,
-      "weight": 1.0
-    },
-    {
-      "source": "citta_logo_citta_logo",
-      "target": "index3_index3",
-      "relation": "references",
-      "confidence": "AMBIGUOUS",
-      "confidence_score": 0.3,
-      "source_file": "index3.html",
-      "source_location": null,
-      "weight": 1.0
-    },
-    {
       "source": "display_initfirebase",
       "target": "display_atualizardisplaywithdata",
       "relation": "calls",
@@ -2286,16 +2238,6 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pix-fura-fila-sandbox/docs/TESTES.md",
-      "source_location": null,
-      "weight": 1.0
-    },
-    {
-      "source": "index3_index3",
-      "target": "index2_index2",
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "index3.html",
       "source_location": null,
       "weight": 1.0
     },
@@ -2596,26 +2538,6 @@
       "confidence": "INFERRED",
       "confidence_score": 0.85,
       "source_file": "dj-login.html",
-      "source_location": null,
-      "weight": 1.0
-    },
-    {
-      "source": "index2_index2",
-      "target": "index_index",
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "index2.html",
-      "source_location": null,
-      "weight": 1.0
-    },
-    {
-      "source": "index3_index3",
-      "target": "index_index",
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "index3.html",
       "source_location": null,
       "weight": 1.0
     },
